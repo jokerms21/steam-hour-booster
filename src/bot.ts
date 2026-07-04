@@ -3,6 +3,7 @@ import pRetry from "p-retry";
 import Steam, { EConnectionProtocol } from "steam-user";
 import { logBuffer } from "./log-buffer";
 import { convertRelativePath } from "./path";
+import { notifyError, notifyExpired, notifyReconnected } from "./telegram/bot";
 import type { TokenStorage } from "./token-storage";
 
 type LoginDetails = Parameters<Steam["logOn"]>[0];
@@ -160,6 +161,9 @@ export class Bot {
 	#setup(): void {
 		this.#steam.on("loggedOn", async () => {
 			this.#log("Logged in.");
+			if (this.#startedAt === 0) {
+				notifyReconnected(this.#username);
+			}
 			this.#startedAt = Date.now();
 			this.#status = "Playing";
 			await this.#resolveGameNames();
@@ -186,6 +190,7 @@ export class Bot {
 				return;
 			}
 
+			notifyError(this.#username, err.message);
 			this.#handleError(err);
 		});
 
@@ -447,6 +452,7 @@ export class Bot {
 		this.#status = "Expired";
 		this.#startedAt = 0;
 		this.#steam.logOff();
+		notifyExpired(this.#username);
 
 		// Delete expired token so next login uses credentials or prompts QR
 		try {
