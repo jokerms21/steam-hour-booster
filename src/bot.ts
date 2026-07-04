@@ -189,7 +189,7 @@ export class Bot {
 
 		this.#steam.on("disconnected", (eresult, msg) => {
 			console.log("[DEBUG] event: disconnected", eresult, msg);
-			if (this.#status !== "Expired") {
+			if (this.#status !== "Expired" && this.#status !== "Kicked") {
 				this.#status = "Logged Out";
 			}
 			this.#startedAt = 0;
