@@ -137,6 +137,14 @@ main {
 	color: #000;
 }
 
+.pause-reason {
+	font-size: 11px;
+	color: var(--text-muted);
+	margin-top: -6px;
+	margin-bottom: 8px;
+	font-style: italic;
+}
+
 .account-meta {
 	display: flex;
 	gap: 16px;

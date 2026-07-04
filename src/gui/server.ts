@@ -314,7 +314,7 @@ export function startGuiServer(
 						);
 					}
 
-					bot.pause();
+					bot.pause("Paused by user");
 					broadcast({ type: "status", data: getStatus() });
 					return Response.json({ ok: true });
 				} catch (err) {

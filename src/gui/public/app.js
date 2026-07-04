@@ -81,6 +81,7 @@ function renderAccounts(accounts) {
                 <span class="account-name">${a.username}</span>
                 <span class="status-badge ${a.paused ? "Paused" : a.status}">${a.paused ? "Paused" : a.status}</span>
             </div>
+            ${a.paused && a.pauseReason ? `<div class="pause-reason">${a.pauseReason}</div>` : ""}
             <div class="account-meta">
                 <span>Uptime: ${a.uptime}</span>
             </div>

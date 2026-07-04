@@ -18,6 +18,7 @@ export interface BotInfo {
 	uptime: string;
 	games: { appid: string; name: string }[];
 	paused: boolean;
+	pauseReason: string | null;
 	loginMethod: "credentials" | "qrcode";
 }
 
@@ -57,6 +58,7 @@ export class Bot {
 	#pauseErrors = false;
 	#blocked = false;
 	#paused = false;
+	#pauseReason: string | null = null;
 	#status: BotStatus = "Logged Out";
 	#startedAt = 0;
 	#pausedAt = 0;
@@ -104,6 +106,7 @@ export class Bot {
 			uptime,
 			games: this.#gameNames,
 			paused: this.#paused,
+			pauseReason: this.#pauseReason,
 			loginMethod: this.#loginMethod,
 		};
 	}
@@ -321,19 +324,21 @@ export class Bot {
 		await promise;
 	}
 
-	pause(): void {
+	pause(reason?: string): void {
 		if (this.#paused || this.#status !== "Playing") return;
 		this.#paused = true;
 		this.#pausedAt = Date.now();
+		this.#pauseReason = reason ?? "Paused by user";
 		this.#steam.gamesPlayed([]);
 		this.#steam.setPersona(Steam.EPersonaState.Offline);
 		this.#status = "Idle";
-		this.#log("Boosting paused.");
+		this.#log(`Boosting paused: ${this.#pauseReason}`);
 	}
 
 	resume(): void {
 		if (!this.#paused) return;
 		this.#paused = false;
+		this.#pauseReason = null;
 		this.#startedAt += Date.now() - this.#pausedAt;
 		this.#pausedAt = 0;
 		this.#steam.setPersona(
