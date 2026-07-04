@@ -544,6 +544,18 @@ export class Bot {
 						this.#steam.setPersona(Steam.EPersonaState.Online);
 					}
 
+					// Trigger playingState event to detect if account is blocked
+					this.#steam.gamesPlayed([]);
+					await Bun.sleep(2000);
+
+					if (this.#blocked) {
+						this.#safetyDelayActive = false;
+						this.#status = "Blocked";
+						this.#log("Account is blocked (user in-game). Not boosting.");
+						sendNotification(`🔴 <b>Blocked</b> — ${this.#username}\nAccount is in use, not boosting.`);
+						return;
+					}
+
 					// Safety delay: wait before boosting to make sure user is truly done
 					const safetyDelaySec = Number(Bun.env["KICKED_SAFETY_DELAY"] ?? "180");
 					const SAFETY_DELAY_MS = safetyDelaySec * 1000;
@@ -561,6 +573,13 @@ export class Bot {
 						// Check if user kicked again during safety delay
 						if (this.#status === "Kicked") {
 							this.#log("Safety delay: user kicked again, skipping boost.");
+							return;
+						}
+
+						if (this.#blocked) {
+							this.#status = "Blocked";
+							this.#log("Safety delay passed but account is blocked (user in-game).");
+							sendNotification(`🔴 <b>Blocked</b> — ${this.#username}\nAccount is in use, not boosting.`);
 							return;
 						}
 
