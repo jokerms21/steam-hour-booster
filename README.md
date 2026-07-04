@@ -269,7 +269,7 @@ The bot handles common Steam errors automatically:
 | Error | Code | Behavior |
 | --- | --- | --- |
 | **Expired** | eresult 27 | Deletes token, sets status to "Expired". Re-login via GUI required. |
-| **LoggedInElsewhere** | eresult 6 | Retries every 3 minutes until account is free. Telegram notification. |
+| **LoggedInElsewhere** | eresult 6 | Retries every 3 minutes until account is free. 3-minute safety delay before resuming boost to prevent conflicts if user is reconnecting. |
 | **ServiceUnavailable** | eresult 20 | Exponential backoff retry (30s → 60s → ... → 300s max). |
 | **NoConnection** | eresult 3 | Same as ServiceUnavailable — auto-retry with backoff. |
 
