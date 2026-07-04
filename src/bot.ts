@@ -79,6 +79,8 @@ export class Bot {
 	#gameNames: { appid: string; name: string }[] = [];
 	#steamGuardRequester: ((username: string) => Promise<string>) | null = null;
 	#kickedTimer: ReturnType<typeof setTimeout> | null = null;
+	#serviceUnavailableTimer: ReturnType<typeof setTimeout> | null = null;
+	#serviceUnavailableRetries = 0;
 
 	constructor(
 		username: string,
@@ -200,6 +202,12 @@ export class Bot {
 			// eresult 6 = LoggedInElsewhere — kicked by user, auto-resume in 3 min
 			if ((err as Error & { eresult?: number }).eresult === 6) {
 				this.#handleKicked();
+				return;
+			}
+
+			// eresult 20 = ServiceUnavailable — Steam server issue, retry with backoff
+			if ((err as Error & { eresult?: number }).eresult === 20) {
+				this.#handleServiceUnavailable();
 				return;
 			}
 
@@ -523,6 +531,60 @@ export class Bot {
 				}
 			},
 			3 * 60 * 1000,
+		);
+	}
+
+	#handleServiceUnavailable(): void {
+		if (this.#serviceUnavailableTimer) return;
+
+		this.#serviceUnavailableRetries++;
+		const delaySec = Math.min(30 * this.#serviceUnavailableRetries, 300);
+		const delayMs = delaySec * 1000;
+
+		this.#log(`ServiceUnavailable (eresult: 20). Retry #${this.#serviceUnavailableRetries} in ${delaySec}s.`);
+		this.#status = "Logged Out";
+		this.#startedAt = 0;
+		this.#steam.logOff();
+
+		if (this.#serviceUnavailableRetries === 1) {
+			sendNotification(
+				`⚠️ <b>Service Unavailable</b> — ${this.#username}\nSteam server issue. Retrying with backoff.`,
+			);
+		}
+
+		this.#serviceUnavailableTimer = setTimeout(
+			async () => {
+				this.#serviceUnavailableTimer = null;
+				this.#log(`Retrying after ServiceUnavailable (#${this.#serviceUnavailableRetries})...`);
+
+				try {
+					await this.login();
+
+					this.#serviceUnavailableRetries = 0;
+
+					if (this.#online) {
+						this.#steam.setPersona(Steam.EPersonaState.Online);
+					}
+
+					this.#play();
+					this.#log("Reconnected after ServiceUnavailable.");
+
+					sendNotification(`🟢 <b>Reconnected</b> — ${this.#username}`);
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+
+					if (msg.includes("ServiceUnavailable") || msg.includes("eresult: 20")) {
+						this.#handleServiceUnavailable();
+						return;
+					}
+
+					console.error(err);
+					this.#log("Retry failed after ServiceUnavailable.");
+					this.#serviceUnavailableRetries = 0;
+					notifyError(this.#username, `ServiceUnavailable retry failed: ${msg}`);
+				}
+			},
+			delayMs,
 		);
 	}
 }
