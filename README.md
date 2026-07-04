@@ -7,7 +7,11 @@
 
 <sub>*This software is not affiliated with Valve Corporation or Steam.*</sub>
 
-![Result of hours farming](./result.png)
+### GUI Panel
+
+<p align="center">
+  <img src="./gui-panel.jpg" alt="Steam Hour Booster GUI Panel" width="800">
+</p>
 
 ## Table of contents
 - [Requirements](#requirements)
@@ -76,6 +80,14 @@ Open **http://localhost:3000/** in your browser.
 | **Edit** | Change password, games, online status, login method |
 | **QR Login** | Show QR code for login (only for `qrcode` accounts) |
 | **Delete** | Remove account from config |
+
+### Add / Edit account
+
+<p align="center">
+  <img src="./add-account.jpg" alt="Add Account Form" width="600">
+</p>
+
+Multi-step wizard with game search, drag-to-reorder, and boosting schedule.
 
 ### Form wizard (3 steps)
 1. **Account** — Login Method, Username, Password
