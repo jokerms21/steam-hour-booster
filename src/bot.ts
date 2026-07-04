@@ -231,6 +231,7 @@ export class Bot {
 		});
 
 		this.#steam.on("playingState", (blocked, playingApp) => {
+			const wasBlocked = this.#blocked;
 			this.#blocked = blocked;
 
 			if (!blocked && playingApp !== 0) {
@@ -238,6 +239,10 @@ export class Bot {
 			}
 
 			this.#log(`Playing state changed: ${blocked} (App ID: ${playingApp})`);
+
+			if (wasBlocked && !blocked && !this.#paused) {
+				sendNotification(`🟢 <b>Account free</b> — ${this.#username}\nUser left the game, boosting now.`);
+			}
 
 			this.#play();
 		});
