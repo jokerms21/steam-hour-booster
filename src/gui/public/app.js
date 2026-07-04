@@ -3,6 +3,7 @@ const onlineCount = document.getElementById("online-count");
 const totalCount = document.getElementById("total-count");
 const logsList = document.getElementById("logs-list");
 const logFilter = document.getElementById("log-filter");
+const logFilterUser = document.getElementById("log-filter-user");
 const addBtn = document.getElementById("add-account-btn");
 const modalOverlay = document.getElementById("modal-overlay");
 const modalTitle = document.getElementById("modal-title");
@@ -69,6 +70,7 @@ function renderAccounts(accounts) {
 	const online = accounts.filter((a) => a.status === "Playing").length;
 	onlineCount.textContent = online;
 	totalCount.textContent = accounts.length;
+	updateUserFilter(accounts);
 }
 
 window.pauseBot = async (username) => {
@@ -95,8 +97,12 @@ function addLog(entry) {
 
 function renderLogs() {
 	const filter = logFilter.value;
-	const filtered =
-		filter === "all" ? logs : logs.filter((l) => l.level === filter);
+	const userFilter = logFilterUser.value;
+	const filtered = logs.filter((l) => {
+		if (filter !== "all" && l.level !== filter) return false;
+		if (userFilter !== "all" && l.user !== userFilter) return false;
+		return true;
+	});
 
 	logsList.innerHTML = filtered
 		.map(
@@ -106,6 +112,23 @@ function renderLogs() {
 		.join("");
 
 	logsList.scrollTop = logsList.scrollHeight;
+}
+
+function updateUserFilter(accounts) {
+	const current = logFilterUser.value;
+	const usernames = accounts.map((a) => a.username);
+
+	logFilterUser.innerHTML = '<option value="all">All accounts</option>';
+	for (const u of usernames) {
+		const opt = document.createElement("option");
+		opt.value = u;
+		opt.textContent = u;
+		logFilterUser.appendChild(opt);
+	}
+
+	if (usernames.includes(current)) {
+		logFilterUser.value = current;
+	}
 }
 
 // Account Modal
@@ -345,6 +368,7 @@ qrOverlay.addEventListener("click", (e) => {
 });
 
 logFilter.addEventListener("change", renderLogs);
+logFilterUser.addEventListener("change", renderLogs);
 
 // Steam Guard Modal
 function openSteamGuardModal(username) {

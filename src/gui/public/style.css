@@ -179,7 +179,13 @@ main {
 	font-weight: 600;
 }
 
-#log-filter {
+.logs-filters {
+	display: flex;
+	gap: 6px;
+}
+
+#log-filter,
+#log-filter-user {
 	background: var(--bg);
 	color: var(--text);
 	border: 1px solid var(--border);

@@ -30,11 +30,16 @@
     <aside id="logs-panel">
         <div class="logs-header">
             <h2>Logs</h2>
-            <select id="log-filter">
-                <option value="all">All</option>
-                <option value="error">Errors</option>
-                <option value="warn">Warnings</option>
-            </select>
+            <div class="logs-filters">
+                <select id="log-filter-user">
+                    <option value="all">All accounts</option>
+                </select>
+                <select id="log-filter">
+                    <option value="all">All levels</option>
+                    <option value="error">Errors</option>
+                    <option value="warn">Warnings</option>
+                </select>
+            </div>
         </div>
         <div id="logs-list"></div>
     </aside>
