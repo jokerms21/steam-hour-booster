@@ -64,6 +64,8 @@ export interface GuiServerOptions {
 	domain?: string | undefined;
 	certFile?: string | undefined;
 	keyFile?: string | undefined;
+	username?: string | undefined;
+	password?: string | undefined;
 }
 
 export function startGuiServer(
@@ -100,10 +102,39 @@ export function startGuiServer(
 				}
 			: undefined;
 
+	const authRequired = options.username && options.password;
+
+	const checkAuth = (req: Request): Response | null => {
+		if (!authRequired) return null;
+
+		const authHeader = req.headers.get("Authorization");
+		if (!authHeader?.startsWith("Basic ")) {
+			return new Response("Authentication required", {
+				status: 401,
+				headers: { "WWW-Authenticate": 'Basic realm="Steam Hour Booster"' },
+			});
+		}
+
+		const decoded = atob(authHeader.slice(6));
+		const [user, pass] = decoded.split(":");
+
+		if (user === options.username && pass === options.password) {
+			return null;
+		}
+
+		return new Response("Invalid credentials", {
+			status: 401,
+			headers: { "WWW-Authenticate": 'Basic realm="Steam Hour Booster"' },
+		});
+	};
+
 	Bun.serve({
 		port: options.port,
 		...(tlsOptions ? { tls: tlsOptions } : {}),
 		async fetch(req, server) {
+			const authError = checkAuth(req);
+			if (authError) return authError;
+
 			const url = new URL(req.url);
 
 			// WebSocket upgrade
@@ -415,7 +446,8 @@ export function startGuiServer(
 
 	const protocol = tlsOptions ? "https" : "http";
 	const host = options.domain ?? `localhost:${options.port}`;
-	console.info(`GUI panel running at ${protocol}://${host}/`);
+	const authInfo = authRequired ? " (auth enabled)" : "";
+	console.info(`GUI panel running at ${protocol}://${host}/${authInfo}`);
 }
 
 export function guiBroadcast(data: unknown): void {

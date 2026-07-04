@@ -12,6 +12,8 @@ const guiPort = Number(Bun.env["MONITOR_PORT"] ?? "3000");
 const guiDomain = Bun.env["GUI_DOMAIN"];
 const guiCertFile = Bun.env["GUI_CERT_FILE"];
 const guiKeyFile = Bun.env["GUI_KEY_FILE"];
+const guiUsername = Bun.env["GUI_USERNAME"];
+const guiPassword = Bun.env["GUI_PASSWORD"];
 
 const config = await loadConfig(configPath);
 const configManager = new ConfigManager(configPath, config);
@@ -41,6 +43,8 @@ startGuiServer(
 		domain: guiDomain,
 		certFile: guiCertFile,
 		keyFile: guiKeyFile,
+		username: guiUsername,
+		password: guiPassword,
 	},
 	configManager,
 );

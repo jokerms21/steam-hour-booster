@@ -108,9 +108,13 @@ cp .env.template .env
 | `STEAM_DATA_DIRECTORY` | Steam data storage path | `./steam-data` |
 | `TOKEN_STORAGE_DIRECTORY` | Refresh tokens storage path | `./tokens` |
 | `MONITOR_PORT` | GUI server port | `3000` |
+| `GUI_USERNAME` | Basic Auth username (optional) | — |
+| `GUI_PASSWORD` | Basic Auth password (optional) | — |
 | `GUI_DOMAIN` | Domain name for HTTPS (optional) | — |
 | `GUI_CERT_FILE` | Path to SSL certificate (optional) | — |
 | `GUI_KEY_FILE` | Path to SSL private key (optional) | — |
+
+> **Security:** If you expose the GUI to the internet, always set `GUI_USERNAME` and `GUI_PASSWORD` to protect your accounts.
 
 ## HTTPS / Domain
 
