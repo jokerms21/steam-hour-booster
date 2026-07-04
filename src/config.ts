@@ -11,6 +11,16 @@ export const configSchema = z.array(
 		games: z.array(z.number().int().positive()).min(1).max(32),
 		online: z.boolean().default(false),
 		loginMethod: z.enum(["credentials", "qrcode"]).default("credentials"),
+		schedule: z
+			.object({
+				enabled: z.boolean().default(false),
+				startHour: z.number().int().min(0).max(23).default(0),
+				startMinute: z.number().int().min(0).max(59).default(0),
+				endHour: z.number().int().min(0).max(23).default(0),
+				endMinute: z.number().int().min(0).max(59).default(0),
+				timezone: z.string().default("UTC"),
+			})
+			.default({}),
 	}),
 );
 
@@ -78,6 +88,7 @@ export class ConfigManager {
 			games: current.games,
 			online: current.online,
 			loginMethod: current.loginMethod,
+			schedule: current.schedule,
 		};
 		if (typeof entry["username"] === "string")
 			updated.username = entry["username"];
@@ -94,6 +105,8 @@ export class ConfigManager {
 			entry["loginMethod"] === "qrcode"
 		)
 			updated.loginMethod = entry["loginMethod"];
+		if (entry["schedule"] && typeof entry["schedule"] === "object")
+			updated.schedule = entry["schedule"] as ConfigEntry["schedule"];
 		this.#config[idx] = updated;
 		this.#save();
 	}
