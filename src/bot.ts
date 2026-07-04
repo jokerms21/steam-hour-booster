@@ -439,6 +439,10 @@ export class Bot {
 	}
 
 	#play() {
+		if (this.#safetyDelayActive) {
+			return;
+		}
+
 		if (this.#paused) {
 			this.#steam.gamesPlayed([]);
 			this.#status = "Idle";
