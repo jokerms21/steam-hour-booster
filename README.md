@@ -54,11 +54,19 @@ Open **http://localhost:3000/** in your browser.
 ### Features
 - **Dashboard** — real-time status of all accounts (Playing, Paused, Logged Out)
 - **Add / Edit / Delete** accounts without restarting
-- **Pause / Resume** boosting per account
+- **Pause / Resume** boosting per account or all at once
 - **QR Login** — scan QR code from the GUI (auto-refreshes every 30 seconds)
 - **Steam Guard** — enter Steam Guard codes directly in the GUI
-- **Live logs** — filterable by level and username
+- **Live logs** — color-coded, filterable by level and username, collapsible on mobile
 - **Online Status** — set accounts to Online or Offline in Steam
+- **Game search** — search Steam store by name, click to add App ID
+- **Boosting schedule** — auto-pause/resume by time of day with timezone support
+- **Log export** — download logs as .txt file
+- **Bug report** — one-click download of system info template
+- **Dark / Light theme** — toggle with ☀️/🌙 button, saved in localStorage
+- **Mobile responsive** — full-screen modals, FAB for quick actions, bottom sheet menus
+- **Bulk operations** — select multiple accounts, pause/resume/delete in bulk
+- **Drag-to-reorder** — reorder game IDs by dragging, first = main Steam status game
 
 ### Account card
 | Button | Action |
@@ -68,6 +76,11 @@ Open **http://localhost:3000/** in your browser.
 | **Edit** | Change password, games, online status, login method |
 | **QR Login** | Show QR code for login (only for `qrcode` accounts) |
 | **Delete** | Remove account from config |
+
+### Form wizard (3 steps)
+1. **Account** — Login Method, Username, Password
+2. **Games** — App IDs with search, drag-to-reorder (max 32)
+3. **Settings** — Online Status, Boosting Schedule
 
 ## Configuration
 
@@ -93,6 +106,25 @@ Configuration is a JSON file with a list of accounts.
 | `games` | number[] | Yes | Game App IDs to farm (max 32). Find IDs on [SteamDB](https://steamdb.info/) |
 | `online` | boolean | No | Appear online & in-game (default: `false`) |
 | `loginMethod` | string | No | `"credentials"` (default) or `"qrcode"` |
+| `schedule` | object | No | Boosting schedule (see below) |
+
+### Schedule
+Auto-pause and resume boosting by time of day:
+
+```jsonc
+{
+    "schedule": {
+        "enabled": true,
+        "startHour": 8,
+        "startMinute": 0,
+        "endHour": 22,
+        "endMinute": 0,
+        "timezone": "Europe/Warsaw"
+    }
+}
+```
+
+The bot will automatically pause outside the time window and resume within it. Timezone supports any valid IANA timezone.
 
 ## Environment variables
 You can provide a `.env` file to configure environment variables.
@@ -189,4 +221,13 @@ Don't take my word for it though, use at your own risk.
 If you refresh the page while the bot is waiting for Steam Guard, the modal will reappear automatically. If it doesn't, wait 5 seconds and it will fall back to console input.
 
 ### How to pause boosting?
-Click **Pause** on the account card. The bot will stop playing games and appear offline in Steam. Click **Resume** to continue.
+Click **Pause** on the account card. The bot will stop playing games and appear offline in Steam. Click **Resume** to continue. You can also **Pause All** from the header button or FAB on mobile.
+
+### What is the 32-game limit?
+Steam only allows boosting 32 games simultaneously per account. The GUI shows a counter and prevents adding more.
+
+### How does game search work?
+Game search uses the Steam Store API (`storesearch`). Results are cached for 5 minutes. You can search by game name and click a result to add its App ID.
+
+### How does the schedule work?
+Set a start/end time and timezone in the schedule config. The bot checks every 60 seconds and auto-pauses/resumes based on the current time in your timezone.
