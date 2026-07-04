@@ -1,7 +1,7 @@
 services:
   booster:
     container_name: booster
-    image: drwarpman/steam-hour-booster:latest
+    build: .
     restart: unless-stopped
     volumes:
       - ./config.json:/app/config.json

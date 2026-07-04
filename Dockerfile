@@ -15,5 +15,7 @@ FROM base AS release
 COPY --from=install /temp/prod/node_modules node_modules
 COPY src/ src
 COPY package.json .
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
-ENTRYPOINT [ "bun", "." ]
+ENTRYPOINT [ "/docker-entrypoint.sh", "bun", "." ]
