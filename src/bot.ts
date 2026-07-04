@@ -89,8 +89,14 @@ export class Bot {
 	}
 
 	get info(): BotInfo {
-		const uptime =
-			this.#startedAt > 0 ? formatUptime(Date.now() - this.#startedAt) : "-";
+		let uptimeMs = 0;
+		if (this.#startedAt > 0) {
+			uptimeMs = Date.now() - this.#startedAt;
+			if (this.#paused && this.#pausedAt > 0) {
+				uptimeMs -= Date.now() - this.#pausedAt;
+			}
+		}
+		const uptime = this.#startedAt > 0 ? formatUptime(uptimeMs) : "-";
 
 		return {
 			username: this.#username,
