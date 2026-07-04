@@ -576,6 +576,9 @@ export function startGuiServer(
 
 				// Static files
 				let filePath = url.pathname === "/" ? "/index.html" : url.pathname;
+				if (filePath === "/favicon.ico") {
+					return Response.redirect("/favicon.svg", 302);
+				}
 				filePath = resolve(PUBLIC_DIR, `.${filePath}`);
 
 				const file = Bun.file(filePath);
