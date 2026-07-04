@@ -3,6 +3,12 @@ import pRetry from "p-retry";
 import Steam, { EConnectionProtocol } from "steam-user";
 import { logBuffer } from "./log-buffer";
 import { convertRelativePath } from "./path";
+import {
+	notifyError,
+	notifyExpired,
+	notifyReconnected,
+	sendNotification,
+} from "./telegram/bot";
 import type { TokenStorage } from "./token-storage";
 
 type LoginDetails = Parameters<Steam["logOn"]>[0];
@@ -15,7 +21,8 @@ export type BotStatus =
 	| "Playing"
 	| "Blocked"
 	| "Logged Out"
-	| "Expired";
+	| "Expired"
+	| "Kicked";
 
 export interface BotInfo {
 	username: string;
@@ -71,6 +78,9 @@ export class Bot {
 	#pausedAt = 0;
 	#gameNames: { appid: string; name: string }[] = [];
 	#steamGuardRequester: ((username: string) => Promise<string>) | null = null;
+	#kickedTimer: ReturnType<typeof setTimeout> | null = null;
+	#serviceUnavailableTimer: ReturnType<typeof setTimeout> | null = null;
+	#serviceUnavailableRetries = 0;
 
 	constructor(
 		username: string,
@@ -160,6 +170,9 @@ export class Bot {
 	#setup(): void {
 		this.#steam.on("loggedOn", async () => {
 			this.#log("Logged in.");
+			if (this.#startedAt === 0) {
+				notifyReconnected(this.#username);
+			}
 			this.#startedAt = Date.now();
 			this.#status = "Playing";
 			await this.#resolveGameNames();
@@ -186,6 +199,25 @@ export class Bot {
 				return;
 			}
 
+			// eresult 6 = LoggedInElsewhere — kicked by user, auto-resume in 3 min
+			if ((err as Error & { eresult?: number }).eresult === 6) {
+				this.#handleKicked();
+				return;
+			}
+
+			// eresult 20 = ServiceUnavailable — Steam server issue, retry with backoff
+			if ((err as Error & { eresult?: number }).eresult === 20) {
+				this.#handleServiceUnavailable();
+				return;
+			}
+
+			// eresult 3 = NoConnection — connection lost, retry
+			if ((err as Error & { eresult?: number }).eresult === 3) {
+				this.#handleServiceUnavailable();
+				return;
+			}
+
+			notifyError(this.#username, err.message);
 			this.#handleError(err);
 		});
 
@@ -424,6 +456,12 @@ export class Bot {
 			return;
 		}
 
+		// eresult 3 = NoConnection, eresult 20 = ServiceUnavailable — retry
+		if (err.eresult === 3 || err.eresult === 20) {
+			this.#handleServiceUnavailable();
+			return;
+		}
+
 		try {
 			await this.logout();
 
@@ -447,12 +485,119 @@ export class Bot {
 		this.#status = "Expired";
 		this.#startedAt = 0;
 		this.#steam.logOff();
+		notifyExpired(this.#username);
 
 		// Delete expired token so next login uses credentials or prompts QR
 		try {
 			await this.#tokenStorage?.deleteToken(this.#username);
 			this.#log("Expired token deleted. Use GUI to re-login.");
 		} catch {}
+	}
+
+	#handleKicked(): void {
+		if (this.#kickedTimer) return;
+
+		this.#log("Logged in elsewhere (eresult: 6). Will retry every 3 minutes.");
+		this.#status = "Kicked";
+		this.#startedAt = 0;
+		this.#steam.logOff();
+
+		sendNotification(
+			`🟡 <b>Kicked</b> — ${this.#username}\nLogged in elsewhere. Will retry every 3 minutes.`,
+		);
+
+		this.#scheduleKickedRetry();
+	}
+
+	#scheduleKickedRetry(): void {
+		this.#kickedTimer = setTimeout(
+			async () => {
+				this.#kickedTimer = null;
+				this.#log("Attempting to resume after kick...");
+
+				try {
+					await this.login();
+
+					if (this.#online) {
+						this.#steam.setPersona(Steam.EPersonaState.Online);
+					}
+
+					this.#play();
+					this.#log("Auto-resume successful after kick.");
+
+					sendNotification(`🟢 <b>Auto-resumed</b> — ${this.#username}`);
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+
+					// Still logged in elsewhere — schedule another retry
+					if (msg.includes("LoggedInElsewhere") || msg.includes("eresult: 6")) {
+						this.#log("Still logged in elsewhere. Retrying in 3 minutes...");
+						this.#status = "Kicked";
+						this.#scheduleKickedRetry();
+						return;
+					}
+
+					console.error(err);
+					this.#log("Auto-resume failed after kick.");
+					notifyError(this.#username, `Auto-resume failed: ${msg}`);
+				}
+			},
+			3 * 60 * 1000,
+		);
+	}
+
+	#handleServiceUnavailable(): void {
+		if (this.#serviceUnavailableTimer) return;
+
+		this.#serviceUnavailableRetries++;
+		const delaySec = Math.min(30 * this.#serviceUnavailableRetries, 300);
+		const delayMs = delaySec * 1000;
+
+		this.#log(`ServiceUnavailable (eresult: 20). Retry #${this.#serviceUnavailableRetries} in ${delaySec}s.`);
+		this.#status = "Logged Out";
+		this.#startedAt = 0;
+		this.#steam.logOff();
+
+		if (this.#serviceUnavailableRetries === 1) {
+			sendNotification(
+				`⚠️ <b>Service Unavailable</b> — ${this.#username}\nSteam server issue. Retrying with backoff.`,
+			);
+		}
+
+		this.#serviceUnavailableTimer = setTimeout(
+			async () => {
+				this.#serviceUnavailableTimer = null;
+				this.#log(`Retrying after ServiceUnavailable (#${this.#serviceUnavailableRetries})...`);
+
+				try {
+					await this.login();
+
+					this.#serviceUnavailableRetries = 0;
+
+					if (this.#online) {
+						this.#steam.setPersona(Steam.EPersonaState.Online);
+					}
+
+					this.#play();
+					this.#log("Reconnected after ServiceUnavailable.");
+
+					sendNotification(`🟢 <b>Reconnected</b> — ${this.#username}`);
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+
+					if (msg.includes("ServiceUnavailable") || msg.includes("eresult: 20")) {
+						this.#handleServiceUnavailable();
+						return;
+					}
+
+					console.error(err);
+					this.#log("Retry failed after ServiceUnavailable.");
+					this.#serviceUnavailableRetries = 0;
+					notifyError(this.#username, `ServiceUnavailable retry failed: ${msg}`);
+				}
+			},
+			delayMs,
+		);
 	}
 }
 

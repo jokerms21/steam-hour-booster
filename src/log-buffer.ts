@@ -2,6 +2,7 @@ export type LogLevel = "info" | "warn" | "error";
 
 export interface LogEntry {
 	time: string;
+	timestamp: number;
 	level: LogLevel;
 	user: string;
 	msg: string;
@@ -18,8 +19,10 @@ class LogBuffer {
 	}
 
 	add(level: LogLevel, user: string, msg: string): void {
+		const now = new Date();
 		const entry: LogEntry = {
-			time: new Date().toLocaleString(),
+			time: now.toLocaleString(),
+			timestamp: now.getTime(),
 			level,
 			user,
 			msg,
@@ -37,10 +40,14 @@ class LogBuffer {
 		return [...this.#logs];
 	}
 
-	getFiltered(filter: { level?: LogLevel; user?: string } = {}): LogEntry[] {
+	getFiltered(
+		filter: { level?: LogLevel; user?: string; since?: number } = {},
+	): LogEntry[] {
 		return this.#logs.filter((l) => {
 			if (filter.level !== undefined && l.level !== filter.level) return false;
 			if (filter.user !== undefined && l.user !== filter.user) return false;
+			if (filter.since !== undefined && l.timestamp < filter.since)
+				return false;
 			return true;
 		});
 	}

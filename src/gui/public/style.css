@@ -521,6 +521,11 @@ main {
 	box-shadow: 0 2px 8px rgba(255, 107, 53, 0.4);
 	animation: statusGlow 2s ease-in-out infinite;
 }
+.status-badge.Kicked {
+	background: linear-gradient(135deg, var(--yellow), #e6a800);
+	color: #000;
+	box-shadow: 0 2px 8px rgba(255, 214, 0, 0.3);
+}
 .status-badge.Paused {
 	background: linear-gradient(135deg, var(--yellow), #e6a800);
 	color: #000;

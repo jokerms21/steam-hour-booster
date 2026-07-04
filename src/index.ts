@@ -1,6 +1,7 @@
 import { Bot } from "./bot";
 import { ConfigManager, loadConfig } from "./config";
 import { startGuiServer } from "./gui/server";
+import { initTelegramBot } from "./telegram/bot";
 import { DefaultTokenStorage } from "./token-storage";
 
 // Global error handlers — prevent crashes from unhandled exceptions
@@ -57,6 +58,19 @@ startGuiServer(
 	},
 	configManager,
 );
+
+// Start Telegram bot (optional — requires TELEGRAM_BOT_TOKEN)
+const telegramToken = Bun.env["TELEGRAM_BOT_TOKEN"];
+const telegramChatId = Bun.env["TELEGRAM_CHAT_ID"];
+
+if (telegramToken) {
+	initTelegramBot(
+		{ token: telegramToken, chatId: telegramChatId ?? null },
+		bots,
+	);
+} else {
+	console.info("[Telegram] No TELEGRAM_BOT_TOKEN set, Telegram bot disabled.");
+}
 
 // Login bots (non-blocking - Steam Guard prompts won't block the server)
 for (const bot of bots) {
