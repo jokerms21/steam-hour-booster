@@ -79,6 +79,7 @@ export class Bot {
 	#gameNames: { appid: string; name: string }[] = [];
 	#steamGuardRequester: ((username: string) => Promise<string>) | null = null;
 	#kickedTimer: ReturnType<typeof setTimeout> | null = null;
+	#kickedSafetyTimer: ReturnType<typeof setTimeout> | null = null;
 	#serviceUnavailableTimer: ReturnType<typeof setTimeout> | null = null;
 	#serviceUnavailableRetries = 0;
 
@@ -497,6 +498,13 @@ export class Bot {
 	#handleKicked(): void {
 		if (this.#kickedTimer) return;
 
+		// Cancel safety timer if user kicks again during confirmation window
+		if (this.#kickedSafetyTimer) {
+			clearTimeout(this.#kickedSafetyTimer);
+			this.#kickedSafetyTimer = null;
+			this.#log("Safety timer cancelled — user kicked again.");
+		}
+
 		this.#log("Logged in elsewhere (eresult: 6). Will retry every 3 minutes.");
 		this.#status = "Kicked";
 		this.#startedAt = 0;
@@ -522,10 +530,28 @@ export class Bot {
 						this.#steam.setPersona(Steam.EPersonaState.Online);
 					}
 
-					this.#play();
-					this.#log("Auto-resume successful after kick.");
+					// Safety delay: wait before boosting to make sure user is truly done
+					const SAFETY_DELAY_MS = 3 * 60 * 1000;
+					this.#log(`Account free. Waiting ${SAFETY_DELAY_MS / 1000}s safety delay before boosting...`);
+					this.#status = "Idle";
 
-					sendNotification(`🟢 <b>Auto-resumed</b> — ${this.#username}`);
+					sendNotification(
+						`🟡 <b>Account free</b> — ${this.#username}\nWaiting ${SAFETY_DELAY_MS / 1000}s safety delay before boosting...`,
+					);
+
+					this.#kickedSafetyTimer = setTimeout(() => {
+						this.#kickedSafetyTimer = null;
+
+						// Check if user kicked again during safety delay
+						if (this.#status === "Kicked") {
+							this.#log("Safety delay: user kicked again, skipping boost.");
+							return;
+						}
+
+						this.#play();
+						this.#log("Auto-resume successful after kick (safety delay passed).");
+						sendNotification(`🟢 <b>Auto-resumed</b> — ${this.#username}`);
+					}, SAFETY_DELAY_MS);
 				} catch (err) {
 					const msg = err instanceof Error ? err.message : String(err);
 
