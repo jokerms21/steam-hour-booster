@@ -24,6 +24,8 @@ export interface BotInfo {
 
 const gameNameCache = new Map<number, string>();
 
+export const MAX_BOOSTED_GAMES = 32;
+
 async function resolveGameName(appId: number): Promise<string> {
 	const cached = gameNameCache.get(appId);
 	if (cached) return cached;
@@ -76,7 +78,7 @@ export class Bot {
 	) {
 		this.#username = username.toLowerCase();
 		this.#password = password;
-		this.#games = games;
+		this.#games = games.slice(0, MAX_BOOSTED_GAMES);
 		this.#online = online;
 		this.#loginMethod = loginMethod;
 		this.#tokenStorage = tokenStorage;

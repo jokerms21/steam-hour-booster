@@ -19,6 +19,8 @@ const formOnline = document.getElementById("form-online");
 const formCancel = document.getElementById("form-cancel");
 
 let gameIds = [];
+const MAX_GAMES = 32;
+const gamesCount = document.getElementById("games-count");
 
 function renderGameTags() {
 	gamesTags.innerHTML = gameIds
@@ -27,6 +29,8 @@ function renderGameTags() {
 				`<span class="game-tag-input">${id}<span class="game-tag-remove" onclick="removeGameTag(${id})">&times;</span></span>`,
 		)
 		.join("");
+	gamesCount.textContent = `${gameIds.length}/${MAX_GAMES}`;
+	formGames.disabled = gameIds.length >= MAX_GAMES;
 }
 
 window.removeGameTag = (id) => {
@@ -34,13 +38,15 @@ window.removeGameTag = (id) => {
 	renderGameTags();
 };
 
-gamesTagsContainer.addEventListener("click", () => formGames.focus());
+gamesTagsContainer.addEventListener("click", () => {
+	if (!formGames.disabled) formGames.focus();
+});
 
 formGames.addEventListener("keydown", (e) => {
 	if (e.key === "Enter") {
 		e.preventDefault();
 		const val = Number(formGames.value.trim());
-		if (val > 0 && !gameIds.includes(val)) {
+		if (val > 0 && !gameIds.includes(val) && gameIds.length < MAX_GAMES) {
 			gameIds.push(val);
 			renderGameTags();
 		}
