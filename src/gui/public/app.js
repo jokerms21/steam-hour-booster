@@ -192,7 +192,7 @@ function openModal(username) {
 					formUsername.value = acc.username;
 					formUsername.disabled = true;
 					formPassword.value = "";
-					formPassword.placeholder = acc.password || "Enter new password";
+					formPassword.placeholder = "Enter new password (or leave blank)";
 					gameIds = acc.games.map(Number);
 					renderGameTags();
 					formLoginMethod.value = acc.loginMethod;
@@ -202,6 +202,7 @@ function openModal(username) {
 	} else {
 		form.reset();
 		formUsername.disabled = false;
+		formPassword.placeholder = "Enter password";
 		gameIds = [];
 		renderGameTags();
 	}
