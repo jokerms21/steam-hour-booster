@@ -372,6 +372,36 @@ main {
 	flex: 1;
 }
 
+/* Login Method Toggle */
+.login-method-toggle {
+	display: flex;
+	gap: 0;
+	border-radius: 10px;
+	overflow: hidden;
+	border: 1px solid var(--border);
+}
+
+.login-method-btn {
+	flex: 1;
+	padding: 12px 16px;
+	border: none;
+	background: var(--bg);
+	color: var(--text-muted);
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.login-method-btn:hover {
+	background: var(--bg-card);
+}
+
+.login-method-btn.active {
+	background: var(--accent);
+	color: #fff;
+}
+
 /* Games Tags Input */
 #games-tags-container {
 	display: flex;

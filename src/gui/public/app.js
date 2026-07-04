@@ -15,9 +15,10 @@ const formGames = document.getElementById("form-games");
 const gamesTagsContainer = document.getElementById("games-tags-container");
 const gamesTags = document.getElementById("games-tags");
 const formLoginMethod = document.getElementById("form-loginMethod");
+const loginMethodBtns = document.querySelectorAll(".login-method-btn");
 const formOnline = document.getElementById("form-online");
 const formCancel = document.getElementById("form-cancel");
-const passwordGroup = document.getElementById("form-password").parentElement;
+const passwordGroup = document.querySelector(".password-group");
 
 let gameIds = [];
 const MAX_GAMES = 32;
@@ -28,7 +29,14 @@ function togglePasswordField() {
 		formLoginMethod.value === "qrcode" ? "none" : "";
 }
 
-formLoginMethod.addEventListener("change", togglePasswordField);
+for (const btn of loginMethodBtns) {
+	btn.addEventListener("click", () => {
+		for (const b of loginMethodBtns) b.classList.remove("active");
+		btn.classList.add("active");
+		formLoginMethod.value = btn.dataset.method;
+		togglePasswordField();
+	});
+}
 
 function renderGameTags() {
 	gamesTags.innerHTML = gameIds
@@ -204,6 +212,9 @@ function openModal(username) {
 					gameIds = acc.games.map(Number);
 					renderGameTags();
 					formLoginMethod.value = acc.loginMethod;
+					for (const b of loginMethodBtns) {
+						b.classList.toggle("active", b.dataset.method === acc.loginMethod);
+					}
 					formOnline.value = String(acc.online);
 					togglePasswordField();
 				}
@@ -212,6 +223,10 @@ function openModal(username) {
 		form.reset();
 		formUsername.disabled = false;
 		formPassword.placeholder = "Enter password";
+		formLoginMethod.value = "credentials";
+		for (const b of loginMethodBtns) {
+			b.classList.toggle("active", b.dataset.method === "credentials");
+		}
 		gameIds = [];
 		renderGameTags();
 		togglePasswordField();
