@@ -78,9 +78,10 @@ export function initTelegramBot(
 			const i = b.info;
 			const icon = statusIcon(i.status, i.paused);
 			const pauseInfo = i.paused ? ` (${i.pauseReason})` : "";
-			const gameList = i.games.length > 0
-				? i.games.map((g) => g.name || g.appid).join(", ")
-				: "no games";
+			const gameList =
+				i.games.length > 0
+					? i.games.map((g) => g.name || g.appid).join(", ")
+					: "no games";
 			return `${icon} <b>${i.username}</b> — ${i.status}${pauseInfo}\n    ⏱ ${i.uptime} | 🎮 ${gameList}`;
 		});
 
@@ -108,9 +109,10 @@ export function initTelegramBot(
 
 		const lines = steamBots.map((b) => {
 			const i = b.info;
-			const gameList = i.games.length > 0
-				? i.games.map((g) => g.name || g.appid).join(", ")
-				: "no games";
+			const gameList =
+				i.games.length > 0
+					? i.games.map((g) => g.name || g.appid).join(", ")
+					: "no games";
 			return `• <b>${i.username}</b> (${i.loginMethod})\n    🎮 ${gameList}`;
 		});
 
@@ -162,23 +164,75 @@ export function initTelegramBot(
 		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
 		await ctx.answerCallbackQuery();
 
+		await ctx.editMessageText("<b>Logs — select time range:</b>", {
+			parse_mode: "HTML",
+			reply_markup: new InlineKeyboard()
+				.text("Last hour", "logs:1h")
+				.text("Last 6 hours", "logs:6h")
+				.row()
+				.text("Last 24 hours", "logs:24h")
+				.text("Last 7 days", "logs:7d")
+				.row()
+				.text("All", "logs:all")
+				.text("◀ Back", "menu:main"),
+		});
+	});
+
+	telegramBot.callbackQuery(/^logs:(.+)$/, async (ctx) => {
+		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
+		await ctx.answerCallbackQuery();
+
+		const range = ctx.match?.[1];
+		if (!range) return;
+
 		const { logBuffer } = await import("../log-buffer");
-		const logs = logBuffer.getFiltered().slice(-10);
+
+		let since: number | undefined;
+		const now = Date.now();
+		if (range === "1h") since = now - 60 * 60 * 1000;
+		else if (range === "6h") since = now - 6 * 60 * 60 * 1000;
+		else if (range === "24h") since = now - 24 * 60 * 60 * 1000;
+		else if (range === "7d") since = now - 7 * 24 * 60 * 60 * 1000;
+
+		const filter = since !== undefined ? { since } : {};
+		const logs = logBuffer.getFiltered(filter).slice(-20);
+
+		const rangeLabel =
+			range === "1h"
+				? "Last hour"
+				: range === "6h"
+					? "Last 6 hours"
+					: range === "24h"
+						? "Last 24 hours"
+						: range === "7d"
+							? "Last 7 days"
+							: "All";
 
 		if (logs.length === 0) {
-			await ctx.editMessageText("No logs yet.", {
-				reply_markup: backBtn(),
+			await ctx.editMessageText(`No logs for ${rangeLabel}.`, {
+				reply_markup: new InlineKeyboard().text("◀ Back", "menu:logs"),
 			});
 			return;
 		}
+
+		const errors = logs.filter((l) => l.level === "error").length;
+		const warns = logs.filter((l) => l.level === "warn").length;
 
 		const text = logs
 			.map((l) => `[${l.time}] [${l.user}] [${l.level.toUpperCase()}] ${l.msg}`)
 			.join("\n");
 
-		await ctx.editMessageText(`<pre>${text}</pre>`, {
+		const header = `<b>${rangeLabel}</b> — ${logs.length} entries`;
+		const stats =
+			errors > 0 || warns > 0
+				? `\n🔴 ${errors} errors | 🟡 ${warns} warnings`
+				: "";
+
+		await ctx.editMessageText(`<pre>${header}${stats}\n\n${text}</pre>`, {
 			parse_mode: "HTML",
-			reply_markup: backBtn(),
+			reply_markup: new InlineKeyboard()
+				.text("◀ Back", "menu:logs")
+				.text("🔄 Refresh", `logs:${range}`),
 		});
 	});
 
@@ -257,11 +311,16 @@ export async function sendNotification(msg: string): Promise<void> {
 export function notifyError(username: string, errorMsg: string): void {
 	const { logBuffer } = require("../log-buffer");
 	const recent = logBuffer.getFiltered({ user: username }).slice(-5);
-	const logLines = recent.map((l: { time: string; level: string; msg: string }) =>
-		`  [${l.level.toUpperCase()}] ${l.msg}`,
-	).join("\n");
+	const logLines = recent
+		.map(
+			(l: { time: string; level: string; msg: string }) =>
+				`  [${l.level.toUpperCase()}] ${l.msg}`,
+		)
+		.join("\n");
 
-	const logSection = logLines ? `\n\n<b>Recent log:</b>\n<pre>${logLines}</pre>` : "";
+	const logSection = logLines
+		? `\n\n<b>Recent log:</b>\n<pre>${logLines}</pre>`
+		: "";
 	sendNotification(
 		`🔴 <b>Error</b> — ${username}\n<code>${errorMsg}</code>${logSection}`,
 	);
