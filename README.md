@@ -7,6 +7,10 @@
 
 <sub>*This software is not affiliated with Valve Corporation or Steam.*</sub>
 
+### Acknowledgments
+
+This project is a fork of [DrWarpMan/steam-hour-booster](https://github.com/DrWarpMan/steam-hour-booster) — thanks to the original author for creating and maintaining the base project.
+
 ### GUI Panel
 
 <p align="center">
