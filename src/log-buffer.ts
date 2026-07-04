@@ -19,7 +19,7 @@ class LogBuffer {
 
 	add(level: LogLevel, user: string, msg: string): void {
 		const entry: LogEntry = {
-			time: new Date().toLocaleTimeString(),
+			time: new Date().toLocaleString(),
 			level,
 			user,
 			msg,
