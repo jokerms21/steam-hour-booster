@@ -78,7 +78,10 @@ export function initTelegramBot(
 			const i = b.info;
 			const icon = statusIcon(i.status, i.paused);
 			const pauseInfo = i.paused ? ` (${i.pauseReason})` : "";
-			return `${icon} <b>${i.username}</b> — ${i.status}${pauseInfo}\n    ⏱ ${i.uptime} | 🎮 ${i.games.length} games`;
+			const gameList = i.games.length > 0
+				? i.games.map((g) => g.name || g.appid).join(", ")
+				: "no games";
+			return `${icon} <b>${i.username}</b> — ${i.status}${pauseInfo}\n    ⏱ ${i.uptime} | 🎮 ${gameList}`;
 		});
 
 		const kb = new InlineKeyboard();
@@ -105,7 +108,10 @@ export function initTelegramBot(
 
 		const lines = steamBots.map((b) => {
 			const i = b.info;
-			return `• <b>${i.username}</b> (${i.loginMethod}) — ${i.games.length} games`;
+			const gameList = i.games.length > 0
+				? i.games.map((g) => g.name || g.appid).join(", ")
+				: "no games";
+			return `• <b>${i.username}</b> (${i.loginMethod})\n    🎮 ${gameList}`;
 		});
 
 		await ctx.editMessageText(`<b>Accounts:</b>\n\n${lines.join("\n")}`, {
@@ -249,7 +255,16 @@ export async function sendNotification(msg: string): Promise<void> {
 }
 
 export function notifyError(username: string, errorMsg: string): void {
-	sendNotification(`🔴 <b>Error</b> — ${username}\n<code>${errorMsg}</code>`);
+	const { logBuffer } = require("../log-buffer");
+	const recent = logBuffer.getFiltered({ user: username }).slice(-5);
+	const logLines = recent.map((l: { time: string; level: string; msg: string }) =>
+		`  [${l.level.toUpperCase()}] ${l.msg}`,
+	).join("\n");
+
+	const logSection = logLines ? `\n\n<b>Recent log:</b>\n<pre>${logLines}</pre>` : "";
+	sendNotification(
+		`🔴 <b>Error</b> — ${username}\n<code>${errorMsg}</code>${logSection}`,
+	);
 }
 
 export function notifyExpired(username: string): void {
