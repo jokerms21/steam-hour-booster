@@ -1,4 +1,4 @@
-import { Bot } from "grammy";
+import { Bot, InlineKeyboard } from "grammy";
 import type { Bot as SteamBot } from "../bot";
 
 interface TelegramBotOptions {
@@ -9,6 +9,37 @@ interface TelegramBotOptions {
 let telegramBot: Bot | null = null;
 let allowedChatId: string | null = null;
 let steamBots: SteamBot[] = [];
+
+function mainMenu(): InlineKeyboard {
+	return new InlineKeyboard()
+		.text("📊 Status", "menu:status")
+		.text("📋 Accounts", "menu:accounts")
+		.row()
+		.text("⏸ Pause All", "menu:pause_all")
+		.text("▶ Resume All", "menu:resume_all")
+		.row()
+		.text("📝 Logs", "menu:logs");
+}
+
+function backBtn(): InlineKeyboard {
+	return new InlineKeyboard().text("◀ Back", "menu:main");
+}
+
+function isAllowed(chatId: number): boolean {
+	if (!allowedChatId) return true;
+	return String(chatId) === allowedChatId;
+}
+
+function findBot(username: string): SteamBot | undefined {
+	return steamBots.find((b) => b.info.username === username.toLowerCase());
+}
+
+function statusIcon(status: string, paused: boolean): string {
+	if (status === "Playing") return "🟢";
+	if (status === "Expired") return "🟠";
+	if (paused) return "🟡";
+	return "🔴";
+}
 
 export function initTelegramBot(
 	options: TelegramBotOptions,
@@ -21,125 +52,90 @@ export function initTelegramBot(
 	telegramBot = new Bot(options.token);
 
 	telegramBot.command("start", (ctx) => {
-		const chatId = String(ctx.chat.id);
-
-		if (allowedChatId && chatId !== allowedChatId) {
+		if (!ctx.chat) return;
+		if (!isAllowed(ctx.chat.id)) {
 			return ctx.reply("Access denied.");
 		}
-
 		if (!allowedChatId) {
-			allowedChatId = chatId;
+			allowedChatId = String(ctx.chat.id);
 		}
-
-		return ctx.reply(
-			"Steam Hour Booster Bot\n\n" +
-				"Commands:\n" +
-				"/status — All accounts status\n" +
-				"/accounts — List accounts\n" +
-				"/pause <username> — Pause account\n" +
-				"/resume <username> — Resume account\n" +
-				"/pause_all — Pause all accounts\n" +
-				"/resume_all — Resume all accounts\n" +
-				"/log — Last 10 log entries",
-		);
+		return ctx.reply("Steam Hour Booster Bot", { reply_markup: mainMenu() });
 	});
 
-	telegramBot.command("status", async (ctx) => {
-		if (!isAllowed(ctx.chat.id)) return;
+	telegramBot.callbackQuery("menu:main", async (ctx) => {
+		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
+		await ctx.answerCallbackQuery();
+		await ctx.editMessageText("Steam Hour Booster Bot", {
+			reply_markup: mainMenu(),
+		});
+	});
 
-		const statuses = steamBots.map((b) => {
-			const info = b.info;
-			const statusIcon =
-				info.status === "Playing"
-					? "🟢"
-					: info.status === "Expired"
-						? "🟠"
-						: info.paused
-							? "🟡"
-							: "🔴";
-			return `${statusIcon} ${info.username} — ${info.status}${info.paused ? ` (${info.pauseReason})` : ""} | ${info.uptime} | ${info.games.length} games`;
+	telegramBot.callbackQuery("menu:status", async (ctx) => {
+		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
+		await ctx.answerCallbackQuery();
+
+		const lines = steamBots.map((b) => {
+			const i = b.info;
+			const icon = statusIcon(i.status, i.paused);
+			const pauseInfo = i.paused ? ` (${i.pauseReason})` : "";
+			return `${icon} <b>${i.username}</b> — ${i.status}${pauseInfo}\n    ⏱ ${i.uptime} | 🎮 ${i.games.length} games`;
 		});
 
-		return ctx.reply(
-			`Accounts (${steamBots.length}):\n\n${statuses.join("\n")}`,
+		const kb = new InlineKeyboard();
+		for (const b of steamBots) {
+			const i = b.info;
+			if (i.status === "Playing" && !i.paused) {
+				kb.text(`⏸ ${i.username}`, `acc:pause:${i.username}`);
+			} else if (i.paused) {
+				kb.text(`▶ ${i.username}`, `acc:resume:${i.username}`);
+			}
+		}
+		kb.row();
+		kb.text("◀ Back", "menu:main");
+
+		await ctx.editMessageText(
+			`<b>Accounts (${steamBots.length})</b>\n\n${lines.join("\n\n")}`,
+			{ parse_mode: "HTML", reply_markup: kb },
 		);
 	});
 
-	telegramBot.command("accounts", async (ctx) => {
-		if (!isAllowed(ctx.chat.id)) return;
+	telegramBot.callbackQuery("menu:accounts", async (ctx) => {
+		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
+		await ctx.answerCallbackQuery();
 
-		const list = steamBots.map((b) => {
-			const info = b.info;
-			return `• ${info.username} (${info.loginMethod}) — ${info.games.length} games`;
+		const lines = steamBots.map((b) => {
+			const i = b.info;
+			return `• <b>${i.username}</b> (${i.loginMethod}) — ${i.games.length} games`;
 		});
 
-		return ctx.reply(`Accounts:\n\n${list.join("\n")}`);
+		await ctx.editMessageText(`<b>Accounts:</b>\n\n${lines.join("\n")}`, {
+			parse_mode: "HTML",
+			reply_markup: backBtn(),
+		});
 	});
 
-	telegramBot.command("pause", async (ctx) => {
-		if (!isAllowed(ctx.chat.id)) return;
-
-		const username = ctx.match;
-		if (!username) {
-			return ctx.reply("Usage: /pause <username>");
-		}
-
-		const bot = steamBots.find(
-			(b) => b.info.username === username.toLowerCase(),
-		);
-		if (!bot) {
-			return ctx.reply(`Account "${username}" not found.`);
-		}
-
-		if (bot.info.status !== "Playing") {
-			return ctx.reply(
-				`${username} is not playing (status: ${bot.info.status}).`,
-			);
-		}
-
-		bot.pause("Paused via Telegram");
-		return ctx.reply(`${username} paused.`);
-	});
-
-	telegramBot.command("resume", async (ctx) => {
-		if (!isAllowed(ctx.chat.id)) return;
-
-		const username = ctx.match;
-		if (!username) {
-			return ctx.reply("Usage: /resume <username>");
-		}
-
-		const bot = steamBots.find(
-			(b) => b.info.username === username.toLowerCase(),
-		);
-		if (!bot) {
-			return ctx.reply(`Account "${username}" not found.`);
-		}
-
-		if (!bot.info.paused) {
-			return ctx.reply(`${username} is not paused.`);
-		}
-
-		bot.resume();
-		return ctx.reply(`${username} resumed.`);
-	});
-
-	telegramBot.command("pause_all", async (ctx) => {
-		if (!isAllowed(ctx.chat.id)) return;
+	telegramBot.callbackQuery("menu:pause_all", async (ctx) => {
+		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
+		await ctx.answerCallbackQuery();
 
 		let paused = 0;
 		for (const bot of steamBots) {
 			if (bot.info.status === "Playing" && !bot.info.paused) {
-				bot.pause("Paused all via Telegram");
+				bot.pause("Paused via Telegram");
 				paused++;
 			}
 		}
 
-		return ctx.reply(`Paused ${paused} account(s).`);
+		await ctx.editMessageText(`⏸ Paused ${paused} account(s).`, {
+			reply_markup: new InlineKeyboard()
+				.text("📊 Status", "menu:status")
+				.text("◀ Back", "menu:main"),
+		});
 	});
 
-	telegramBot.command("resume_all", async (ctx) => {
-		if (!isAllowed(ctx.chat.id)) return;
+	telegramBot.callbackQuery("menu:resume_all", async (ctx) => {
+		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
+		await ctx.answerCallbackQuery();
 
 		let resumed = 0;
 		for (const bot of steamBots) {
@@ -149,24 +145,87 @@ export function initTelegramBot(
 			}
 		}
 
-		return ctx.reply(`Resumed ${resumed} account(s).`);
+		await ctx.editMessageText(`▶ Resumed ${resumed} account(s).`, {
+			reply_markup: new InlineKeyboard()
+				.text("📊 Status", "menu:status")
+				.text("◀ Back", "menu:main"),
+		});
 	});
 
-	telegramBot.command("log", async (ctx) => {
-		if (!isAllowed(ctx.chat.id)) return;
+	telegramBot.callbackQuery("menu:logs", async (ctx) => {
+		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
+		await ctx.answerCallbackQuery();
 
 		const { logBuffer } = await import("../log-buffer");
 		const logs = logBuffer.getFiltered().slice(-10);
 
 		if (logs.length === 0) {
-			return ctx.reply("No logs yet.");
+			await ctx.editMessageText("No logs yet.", {
+				reply_markup: backBtn(),
+			});
+			return;
 		}
 
 		const text = logs
 			.map((l) => `[${l.time}] [${l.user}] [${l.level.toUpperCase()}] ${l.msg}`)
 			.join("\n");
 
-		return ctx.reply(`<pre>${text}</pre>`, { parse_mode: "HTML" });
+		await ctx.editMessageText(`<pre>${text}</pre>`, {
+			parse_mode: "HTML",
+			reply_markup: backBtn(),
+		});
+	});
+
+	telegramBot.callbackQuery(/^acc:pause:(.+)$/, async (ctx) => {
+		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
+		await ctx.answerCallbackQuery();
+
+		const username = ctx.match?.[1];
+		if (!username) return;
+
+		const bot = findBot(username);
+		if (!bot) {
+			await ctx.reply(`Account "${username}" not found.`);
+			return;
+		}
+		if (bot.info.status !== "Playing") {
+			await ctx.reply(`${username} is not playing.`);
+			return;
+		}
+
+		bot.pause("Paused via Telegram");
+		await ctx.editMessageText(`⏸ ${username} paused.`, {
+			reply_markup: new InlineKeyboard()
+				.text(`▶ Resume ${username}`, `acc:resume:${username}`)
+				.row()
+				.text("◀ Back", "menu:main"),
+		});
+	});
+
+	telegramBot.callbackQuery(/^acc:resume:(.+)$/, async (ctx) => {
+		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
+		await ctx.answerCallbackQuery();
+
+		const username = ctx.match?.[1];
+		if (!username) return;
+
+		const bot = findBot(username);
+		if (!bot) {
+			await ctx.reply(`Account "${username}" not found.`);
+			return;
+		}
+		if (!bot.info.paused) {
+			await ctx.reply(`${username} is not paused.`);
+			return;
+		}
+
+		bot.resume();
+		await ctx.editMessageText(`▶ ${username} resumed.`, {
+			reply_markup: new InlineKeyboard()
+				.text(`⏸ Pause ${username}`, `acc:pause:${username}`)
+				.row()
+				.text("◀ Back", "menu:main"),
+		});
 	});
 
 	telegramBot.catch((err) => {
@@ -175,11 +234,6 @@ export function initTelegramBot(
 
 	telegramBot.start();
 	console.info(`[Telegram] Bot started. Admin chat: ${allowedChatId ?? "any"}`);
-}
-
-function isAllowed(chatId: number): boolean {
-	if (!allowedChatId) return true;
-	return String(chatId) === allowedChatId;
 }
 
 export async function sendNotification(msg: string): Promise<void> {
