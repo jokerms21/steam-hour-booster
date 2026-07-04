@@ -1,6 +1,12 @@
 config.json
 steam-data
 tokens
+output.log
+test-qr.ts
+bun.lock
+package-lock.json
+tsconfig.tsbuildinfo
+._tmp
 
 # Based on https://raw.githubusercontent.com/github/gitignore/main/Node.gitignore
 

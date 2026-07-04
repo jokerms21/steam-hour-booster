@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steam Hour Booster</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <header>
+        <h1>Steam Hour Booster</h1>
+        <div id="header-actions">
+            <div id="stats">
+                <span class="stat">
+                    <span class="dot green"></span>
+                    Online: <strong id="online-count">0</strong>
+                </span>
+                <span class="stat">
+                    Total: <strong id="total-count">0</strong>
+                </span>
+            </div>
+            <button id="add-account-btn" class="btn primary">+ Add Account</button>
+        </div>
+    </header>
+
+    <main>
+        <div id="accounts-grid"></div>
+    </main>
+
+    <aside id="logs-panel">
+        <div class="logs-header">
+            <h2>Logs</h2>
+            <select id="log-filter">
+                <option value="all">All</option>
+                <option value="error">Errors</option>
+                <option value="warn">Warnings</option>
+            </select>
+        </div>
+        <div id="logs-list"></div>
+    </aside>
+
+    <!-- Modal: Add/Edit Account -->
+    <div id="modal-overlay" class="hidden">
+        <div id="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Add Account</h3>
+                <button id="modal-close" class="btn-icon">&times;</button>
+            </div>
+            <form id="account-form">
+                <div class="form-group">
+                    <label for="form-username">Username</label>
+                    <input type="text" id="form-username" required pattern="[a-zA-Z0-9_.@]+">
+                </div>
+                <div class="form-group">
+                    <label for="form-password">Password</label>
+                    <input type="password" id="form-password" placeholder="Leave empty to keep current">
+                </div>
+                <div class="form-group">
+                    <label for="form-games">Game App IDs (comma separated)</label>
+                    <input type="text" id="form-games" placeholder="730, 570" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="form-loginMethod">Login Method</label>
+                        <select id="form-loginMethod">
+                            <option value="credentials">Password</option>
+                            <option value="qrcode">QR Code</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="form-online">Online Status</label>
+                        <select id="form-online">
+                            <option value="false">Offline</option>
+                            <option value="true">Online</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="form-cancel" class="btn">Cancel</button>
+                    <button type="submit" class="btn primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: QR Login -->
+    <div id="qr-overlay" class="hidden">
+        <div id="qr-modal">
+            <div class="modal-header">
+                <h3>QR Login</h3>
+                <button id="qr-close" class="btn-icon">&times;</button>
+            </div>
+            <div id="qr-content">
+                <p id="qr-username"></p>
+                <div id="qr-image"></div>
+                <div id="qr-timer"></div>
+                <p id="qr-status">Waiting for QR code...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Steam Guard -->
+    <div id="sg-overlay" class="hidden">
+        <div id="sg-modal">
+            <div class="modal-header">
+                <h3>Steam Guard</h3>
+            </div>
+            <div id="sg-content">
+                <p id="sg-username"></p>
+                <p id="sg-hint">Enter the code from your Steam Guard authenticator app or email.</p>
+                <input type="text" id="sg-code" placeholder="XXXXX" maxlength="5" autocomplete="off" autofocus>
+                <div id="sg-error" class="hidden"></div>
+                <div class="form-actions">
+                    <button id="sg-console" class="btn">Use Console</button>
+                    <button id="sg-submit" class="btn primary">Submit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="/app.js"></script>
+</body>
+</html>

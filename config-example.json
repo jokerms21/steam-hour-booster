@@ -1,7 +1,15 @@
 [
     {
-        "username": "foo",
-        "password": "bar",
-        "games": [730]
+        "username": "your_username",
+        "password": "your_password",
+        "games": [730],
+        "online": true,
+        "loginMethod": "credentials"
+    },
+    {
+        "username": "qr_account",
+        "games": [730, 570],
+        "online": false,
+        "loginMethod": "qrcode"
     }
 ]
