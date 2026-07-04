@@ -17,10 +17,12 @@
 - [Requirements](#requirements)
 - [Quick start](#quick-start)
 - [GUI Panel](#gui-panel)
+- [Telegram Bot](#telegram-bot)
 - [Configuration](#configuration)
 - [Environment variables](#environment-variables)
 - [HTTPS / Domain](#https--domain)
 - [Docker](#docker)
+- [Error handling](#error-handling)
 - [FAQ](#faq)
 
 ## Requirements
@@ -94,6 +96,35 @@ Multi-step wizard with game search, drag-to-reorder, and boosting schedule.
 2. **Games** — App IDs with search, drag-to-reorder (max 32)
 3. **Settings** — Online Status, Boosting Schedule
 
+## Telegram Bot
+
+Optional Telegram bot for notifications and remote control.
+
+### Setup
+1. Create a bot via [@BotFather](https://t.me/BotFather) and get the token
+2. Add to `.env`:
+```env
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+```
+3. Restart the bot. Send `/start` to your bot in Telegram.
+
+### Features
+- **Notifications** — error, session expired, kicked, reconnected alerts
+- **Inline menus** — button-based UI, no commands needed
+- **Status** — view all accounts with game names and uptime
+- **Control** — pause/resume individual accounts or all at once
+- **Logs** — filter by time (1h, 6h, 24h, 7d, All) with error/warn counts
+
+### Commands (via buttons)
+| Button | Action |
+| --- | --- |
+| 📊 Status | All accounts status with games |
+| 📋 Accounts | List accounts |
+| ⏸ Pause All | Pause all accounts |
+| ▶ Resume All | Resume all accounts |
+| 📝 Logs | View logs with time filter |
+
 ## Configuration
 
 Configuration is a JSON file with a list of accounts.
@@ -157,6 +188,8 @@ cp .env.template .env
 | `GUI_DOMAIN` | Domain name for HTTPS (optional) | — |
 | `GUI_CERT_FILE` | Path to SSL certificate (optional) | — |
 | `GUI_KEY_FILE` | Path to SSL private key (optional) | — |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token (optional) | — |
+| `TELEGRAM_CHAT_ID` | Telegram chat ID for admin (optional) | — |
 
 > **Security:** If you expose the GUI to the internet, always set `GUI_USERNAME` and `GUI_PASSWORD` to protect your accounts.
 
@@ -203,6 +236,8 @@ docker run -d \
   steam-hour-booster
 ```
 
+> **Note:** The `tokens` and `steam-data` directories are auto-created if they don't exist.
+
 ### Docker with HTTPS
 
 ```yaml
@@ -222,6 +257,19 @@ services:
       - ./steam-data:/app/steam-data
       - /etc/letsencrypt:/certs:ro
 ```
+
+## Error handling
+
+The bot handles common Steam errors automatically:
+
+| Error | Code | Behavior |
+| --- | --- | --- |
+| **Expired** | eresult 27 | Deletes token, sets status to "Expired". Re-login via GUI required. |
+| **LoggedInElsewhere** | eresult 6 | Retries every 3 minutes until account is free. Telegram notification. |
+| **ServiceUnavailable** | eresult 20 | Exponential backoff retry (30s → 60s → ... → 300s max). |
+| **NoConnection** | eresult 3 | Same as ServiceUnavailable — auto-retry with backoff. |
+
+Global `uncaughtException` and `unhandledRejection` handlers prevent process crashes.
 
 ## FAQ
 
