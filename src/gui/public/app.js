@@ -30,6 +30,7 @@ function renderGameTags() {
 		)
 		.join("");
 	gamesCount.textContent = `${gameIds.length}/${MAX_GAMES}`;
+	gamesCount.classList.toggle("games-count-warn", gameIds.length >= MAX_GAMES);
 	formGames.disabled = gameIds.length >= MAX_GAMES;
 }
 

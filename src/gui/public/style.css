@@ -347,6 +347,11 @@ main {
 	color: var(--text-muted);
 }
 
+.games-count-warn {
+	color: var(--red);
+	font-weight: 600;
+}
+
 .form-group input,
 .form-group select {
 	width: 100%;
