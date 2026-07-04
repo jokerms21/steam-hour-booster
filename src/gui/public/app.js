@@ -12,9 +12,46 @@ const form = document.getElementById("account-form");
 const formUsername = document.getElementById("form-username");
 const formPassword = document.getElementById("form-password");
 const formGames = document.getElementById("form-games");
+const gamesTagsContainer = document.getElementById("games-tags-container");
+const gamesTags = document.getElementById("games-tags");
 const formLoginMethod = document.getElementById("form-loginMethod");
 const formOnline = document.getElementById("form-online");
 const formCancel = document.getElementById("form-cancel");
+
+let gameIds = [];
+
+function renderGameTags() {
+	gamesTags.innerHTML = gameIds
+		.map(
+			(id) =>
+				`<span class="game-tag-input">${id}<span class="game-tag-remove" onclick="removeGameTag(${id})">&times;</span></span>`,
+		)
+		.join("");
+}
+
+window.removeGameTag = (id) => {
+	gameIds = gameIds.filter((g) => g !== id);
+	renderGameTags();
+};
+
+gamesTagsContainer.addEventListener("click", () => formGames.focus());
+
+formGames.addEventListener("keydown", (e) => {
+	if (e.key === "Enter") {
+		e.preventDefault();
+		const val = Number(formGames.value.trim());
+		if (val > 0 && !gameIds.includes(val)) {
+			gameIds.push(val);
+			renderGameTags();
+		}
+		formGames.value = "";
+	}
+
+	if (e.key === "Backspace" && formGames.value === "" && gameIds.length > 0) {
+		gameIds.pop();
+		renderGameTags();
+	}
+});
 
 const qrOverlay = document.getElementById("qr-overlay");
 const qrClose = document.getElementById("qr-close");
@@ -148,7 +185,8 @@ function openModal(username) {
 					formUsername.disabled = true;
 					formPassword.value = "";
 					formPassword.placeholder = acc.password || "Enter new password";
-					formGames.value = acc.games.join(", ");
+					gameIds = acc.games.map(Number);
+					renderGameTags();
 					formLoginMethod.value = acc.loginMethod;
 					formOnline.value = String(acc.online);
 				}
@@ -156,6 +194,8 @@ function openModal(username) {
 	} else {
 		form.reset();
 		formUsername.disabled = false;
+		gameIds = [];
+		renderGameTags();
 	}
 
 	modalOverlay.classList.remove("hidden");
@@ -165,6 +205,8 @@ function closeModal() {
 	modalOverlay.classList.add("hidden");
 	form.reset();
 	formUsername.disabled = false;
+	gameIds = [];
+	renderGameTags();
 	editingUsername = null;
 }
 
@@ -312,15 +354,10 @@ function generateQRCode(url) {
 form.addEventListener("submit", async (e) => {
 	e.preventDefault();
 
-	const games = formGames.value
-		.split(",")
-		.map((s) => Number(s.trim()))
-		.filter((n) => n > 0);
-
 	const body = {
 		username: formUsername.value.trim(),
 		password: formPassword.value || undefined,
-		games,
+		games: gameIds,
 		loginMethod: formLoginMethod.value,
 		online: formOnline.value === "true",
 	};
