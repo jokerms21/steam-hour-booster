@@ -136,13 +136,31 @@ If you use **nginx proxy manager**, just run on default port 3000 and point your
 
 ## Docker
 
-For Docker usage, see [here](https://hub.docker.com/r/drwarpman/steam-hour-booster).
+Build the Docker image from the repository:
+
+```bash
+git clone https://github.com/jokerms21/steam-hour-booster.git
+cd steam-hour-booster
+docker build -t steam-hour-booster .
+```
+
+Run:
+
+```bash
+docker run -d \
+  -p 3000:3000 \
+  -v ./config.json:/app/config.json \
+  -v ./tokens:/app/tokens \
+  -v ./steam-data:/app/steam-data \
+  steam-hour-booster
+```
 
 ### Docker with HTTPS
+
 ```yaml
 services:
   steam-hour-booster:
-    image: drwarpman/steam-hour-booster
+    build: .
     ports:
       - "443:443"
     environment:
