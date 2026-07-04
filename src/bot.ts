@@ -3,7 +3,12 @@ import pRetry from "p-retry";
 import Steam, { EConnectionProtocol } from "steam-user";
 import { logBuffer } from "./log-buffer";
 import { convertRelativePath } from "./path";
-import { notifyError, notifyExpired, notifyReconnected } from "./telegram/bot";
+import {
+	notifyError,
+	notifyExpired,
+	notifyReconnected,
+	sendNotification,
+} from "./telegram/bot";
 import type { TokenStorage } from "./token-storage";
 
 type LoginDetails = Parameters<Steam["logOn"]>[0];
@@ -16,7 +21,8 @@ export type BotStatus =
 	| "Playing"
 	| "Blocked"
 	| "Logged Out"
-	| "Expired";
+	| "Expired"
+	| "Kicked";
 
 export interface BotInfo {
 	username: string;
@@ -72,6 +78,7 @@ export class Bot {
 	#pausedAt = 0;
 	#gameNames: { appid: string; name: string }[] = [];
 	#steamGuardRequester: ((username: string) => Promise<string>) | null = null;
+	#kickedTimer: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(
 		username: string,
@@ -187,6 +194,12 @@ export class Bot {
 			// eresult 27 = Expired — handle immediately, don't retry
 			if ((err as Error & { eresult?: number }).eresult === 27) {
 				this.#handleTokenExpired();
+				return;
+			}
+
+			// eresult 6 = LoggedInElsewhere — kicked by user, auto-resume in 3 min
+			if ((err as Error & { eresult?: number }).eresult === 6) {
+				this.#handleKicked();
 				return;
 			}
 
@@ -459,6 +472,47 @@ export class Bot {
 			await this.#tokenStorage?.deleteToken(this.#username);
 			this.#log("Expired token deleted. Use GUI to re-login.");
 		} catch {}
+	}
+
+	#handleKicked(): void {
+		if (this.#kickedTimer) return;
+
+		this.#log("Logged in elsewhere (eresult: 6). Will resume in 3 minutes.");
+		this.#status = "Kicked";
+		this.#startedAt = 0;
+		this.#steam.logOff();
+
+		sendNotification(
+			`🟡 <b>Kicked</b> — ${this.#username}\nLogged in elsewhere. Auto-resume in 3 minutes.`,
+		);
+
+		this.#kickedTimer = setTimeout(
+			async () => {
+				this.#kickedTimer = null;
+				this.#log("3 minutes passed, attempting to resume...");
+
+				try {
+					await this.login();
+
+					if (this.#online) {
+						this.#steam.setPersona(Steam.EPersonaState.Online);
+					}
+
+					this.#play();
+					this.#log("Auto-resume successful after kick.");
+
+					sendNotification(`🟢 <b>Auto-resumed</b> — ${this.#username}`);
+				} catch (err) {
+					console.error(err);
+					this.#log("Auto-resume failed after kick.");
+					notifyError(
+						this.#username,
+						`Auto-resume failed: ${err instanceof Error ? err.message : String(err)}`,
+					);
+				}
+			},
+			3 * 60 * 1000,
+		);
 	}
 }
 
