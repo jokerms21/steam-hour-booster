@@ -477,19 +477,23 @@ export class Bot {
 	#handleKicked(): void {
 		if (this.#kickedTimer) return;
 
-		this.#log("Logged in elsewhere (eresult: 6). Will resume in 3 minutes.");
+		this.#log("Logged in elsewhere (eresult: 6). Will retry every 3 minutes.");
 		this.#status = "Kicked";
 		this.#startedAt = 0;
 		this.#steam.logOff();
 
 		sendNotification(
-			`🟡 <b>Kicked</b> — ${this.#username}\nLogged in elsewhere. Auto-resume in 3 minutes.`,
+			`🟡 <b>Kicked</b> — ${this.#username}\nLogged in elsewhere. Will retry every 3 minutes.`,
 		);
 
+		this.#scheduleKickedRetry();
+	}
+
+	#scheduleKickedRetry(): void {
 		this.#kickedTimer = setTimeout(
 			async () => {
 				this.#kickedTimer = null;
-				this.#log("3 minutes passed, attempting to resume...");
+				this.#log("Attempting to resume after kick...");
 
 				try {
 					await this.login();
@@ -503,12 +507,19 @@ export class Bot {
 
 					sendNotification(`🟢 <b>Auto-resumed</b> — ${this.#username}`);
 				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+
+					// Still logged in elsewhere — schedule another retry
+					if (msg.includes("LoggedInElsewhere") || msg.includes("eresult: 6")) {
+						this.#log("Still logged in elsewhere. Retrying in 3 minutes...");
+						this.#status = "Kicked";
+						this.#scheduleKickedRetry();
+						return;
+					}
+
 					console.error(err);
 					this.#log("Auto-resume failed after kick.");
-					notifyError(
-						this.#username,
-						`Auto-resume failed: ${err instanceof Error ? err.message : String(err)}`,
-					);
+					notifyError(this.#username, `Auto-resume failed: ${msg}`);
 				}
 			},
 			3 * 60 * 1000,
