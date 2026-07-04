@@ -108,6 +108,7 @@ export function startGuiServer(
 	bots: Bot[],
 	options: GuiServerOptions,
 	configManager: ConfigManager,
+	createBot: (entry: ConfigEntry) => Bot,
 ): void {
 	const clients = new Set<WsClient>();
 
@@ -325,7 +326,7 @@ export function startGuiServer(
 				if (url.pathname === "/api/accounts" && req.method === "POST") {
 					try {
 						const body = (await req.json()) as Record<string, unknown>;
-						configManager.add({
+						const entry = {
 							username: body["username"] as string,
 							password: body["password"] as string | undefined,
 							games: body["games"] as number[],
@@ -334,7 +335,28 @@ export function startGuiServer(
 								(body["loginMethod"] as "credentials" | "qrcode") ??
 								"credentials",
 							schedule: body["schedule"] as ConfigEntry["schedule"],
-						});
+						};
+						
+						// Check if account already exists
+						const usernameLower = entry.username.toLowerCase();
+						if (bots.find(b => b.info.username === usernameLower)) {
+							return Response.json({ 
+								ok: false, 
+								error: "Account already exists" 
+							}, { status: 400 });
+						}
+						
+						configManager.add(entry);
+						
+						// Create and start the bot
+						const bot = createBot(entry);
+						bot.setSteamGuardRequester((username) =>
+							requestSteamGuardCode(username, broadcast),
+						);
+						bots.push(bot);
+						bot.login();
+						
+						broadcast({ type: "status", data: getStatus() });
 						return Response.json({ ok: true });
 					} catch (err) {
 						const msg = err instanceof Error ? err.message : String(err);

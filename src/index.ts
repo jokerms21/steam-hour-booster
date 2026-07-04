@@ -57,6 +57,15 @@ startGuiServer(
 		password: guiPassword,
 	},
 	configManager,
+	(entry) => new Bot(
+		entry.username,
+		entry.password,
+		entry.games,
+		steamDataDirectory,
+		ts,
+		entry.online,
+		entry.loginMethod,
+	),
 );
 
 // Start Telegram bot (optional — requires TELEGRAM_BOT_TOKEN)
