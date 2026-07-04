@@ -80,6 +80,7 @@ export class Bot {
 	#steamGuardRequester: ((username: string) => Promise<string>) | null = null;
 	#kickedTimer: ReturnType<typeof setTimeout> | null = null;
 	#kickedSafetyTimer: ReturnType<typeof setTimeout> | null = null;
+	#safetyDelayActive = false;
 	#serviceUnavailableTimer: ReturnType<typeof setTimeout> | null = null;
 	#serviceUnavailableRetries = 0;
 
@@ -175,6 +176,13 @@ export class Bot {
 				notifyReconnected(this.#username);
 			}
 			this.#startedAt = Date.now();
+
+			if (this.#safetyDelayActive) {
+				this.#log("Safety delay active — skipping auto-play on login.");
+				await this.#resolveGameNames();
+				return;
+			}
+
 			this.#status = "Playing";
 			await this.#resolveGameNames();
 		});
@@ -523,6 +531,8 @@ export class Bot {
 				this.#kickedTimer = null;
 				this.#log("Attempting to resume after kick...");
 
+				this.#safetyDelayActive = true;
+
 				try {
 					await this.login();
 
@@ -542,6 +552,7 @@ export class Bot {
 
 					this.#kickedSafetyTimer = setTimeout(() => {
 						this.#kickedSafetyTimer = null;
+						this.#safetyDelayActive = false;
 
 						// Check if user kicked again during safety delay
 						if (this.#status === "Kicked") {
@@ -554,6 +565,7 @@ export class Bot {
 						sendNotification(`🟢 <b>Auto-resumed</b> — ${this.#username}`);
 					}, SAFETY_DELAY_MS);
 				} catch (err) {
+					this.#safetyDelayActive = false;
 					const msg = err instanceof Error ? err.message : String(err);
 
 					// Still logged in elsewhere — schedule another retry
