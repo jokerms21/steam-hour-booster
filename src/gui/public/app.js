@@ -17,10 +17,18 @@ const gamesTags = document.getElementById("games-tags");
 const formLoginMethod = document.getElementById("form-loginMethod");
 const formOnline = document.getElementById("form-online");
 const formCancel = document.getElementById("form-cancel");
+const passwordGroup = document.getElementById("form-password").parentElement;
 
 let gameIds = [];
 const MAX_GAMES = 32;
 const gamesCount = document.getElementById("games-count");
+
+function togglePasswordField() {
+	passwordGroup.style.display =
+		formLoginMethod.value === "qrcode" ? "none" : "";
+}
+
+formLoginMethod.addEventListener("change", togglePasswordField);
 
 function renderGameTags() {
 	gamesTags.innerHTML = gameIds
@@ -197,6 +205,7 @@ function openModal(username) {
 					renderGameTags();
 					formLoginMethod.value = acc.loginMethod;
 					formOnline.value = String(acc.online);
+					togglePasswordField();
 				}
 			});
 	} else {
@@ -205,6 +214,7 @@ function openModal(username) {
 		formPassword.placeholder = "Enter password";
 		gameIds = [];
 		renderGameTags();
+		togglePasswordField();
 	}
 
 	modalOverlay.classList.remove("hidden");
