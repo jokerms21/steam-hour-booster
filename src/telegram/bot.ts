@@ -124,7 +124,6 @@ export function initTelegramBot(
 
 	telegramBot.callbackQuery("menu:pause_all", async (ctx) => {
 		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
-		await ctx.answerCallbackQuery();
 
 		let paused = 0;
 		for (const bot of steamBots) {
@@ -134,6 +133,7 @@ export function initTelegramBot(
 			}
 		}
 
+		await ctx.answerCallbackQuery({ text: `⏸ Paused ${paused} account(s)` });
 		await ctx.editMessageText(`⏸ Paused ${paused} account(s).`, {
 			reply_markup: new InlineKeyboard()
 				.text("📊 Status", "menu:status")
@@ -143,7 +143,6 @@ export function initTelegramBot(
 
 	telegramBot.callbackQuery("menu:resume_all", async (ctx) => {
 		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
-		await ctx.answerCallbackQuery();
 
 		let resumed = 0;
 		for (const bot of steamBots) {
@@ -153,6 +152,7 @@ export function initTelegramBot(
 			}
 		}
 
+		await ctx.answerCallbackQuery({ text: `▶ Resumed ${resumed} account(s)` });
 		await ctx.editMessageText(`▶ Resumed ${resumed} account(s).`, {
 			reply_markup: new InlineKeyboard()
 				.text("📊 Status", "menu:status")
@@ -162,7 +162,7 @@ export function initTelegramBot(
 
 	telegramBot.callbackQuery("menu:logs", async (ctx) => {
 		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
-		await ctx.answerCallbackQuery();
+		await ctx.answerCallbackQuery({ text: "📂 Logs" });
 
 		await ctx.editMessageText("<b>Logs — select time range:</b>", {
 			parse_mode: "HTML",
@@ -180,10 +180,18 @@ export function initTelegramBot(
 
 	telegramBot.callbackQuery(/^logs:(.+)$/, async (ctx) => {
 		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
-		await ctx.answerCallbackQuery();
 
 		const range = ctx.match?.[1];
 		if (!range) return;
+
+		const rangeLabel =
+			range === "1h" ? "Last hour"
+			: range === "6h" ? "Last 6 hours"
+			: range === "24h" ? "Last 24 hours"
+			: range === "7d" ? "Last 7 days"
+			: "All";
+
+		await ctx.answerCallbackQuery({ text: `📂 ${rangeLabel}` });
 
 		const { logBuffer } = await import("../log-buffer");
 
@@ -196,17 +204,6 @@ export function initTelegramBot(
 
 		const filter = since !== undefined ? { since } : {};
 		const logs = logBuffer.getFiltered(filter).slice(-20);
-
-		const rangeLabel =
-			range === "1h"
-				? "Last hour"
-				: range === "6h"
-					? "Last 6 hours"
-					: range === "24h"
-						? "Last 24 hours"
-						: range === "7d"
-							? "Last 7 days"
-							: "All";
 
 		if (logs.length === 0) {
 			await ctx.editMessageText(`No logs for ${rangeLabel}.`, {
@@ -247,22 +244,22 @@ export function initTelegramBot(
 
 	telegramBot.callbackQuery(/^acc:pause:(.+)$/, async (ctx) => {
 		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
-		await ctx.answerCallbackQuery();
 
 		const username = ctx.match?.[1];
 		if (!username) return;
 
 		const bot = findBot(username);
 		if (!bot) {
-			await ctx.reply(`Account "${username}" not found.`);
+			await ctx.answerCallbackQuery({ text: `Account "${username}" not found` });
 			return;
 		}
 		if (bot.info.status !== "Playing") {
-			await ctx.reply(`${username} is not playing.`);
+			await ctx.answerCallbackQuery({ text: `${username} is not playing` });
 			return;
 		}
 
 		bot.pause("Paused via Telegram");
+		await ctx.answerCallbackQuery({ text: `⏸ ${username} paused` });
 		await ctx.editMessageText(`⏸ ${username} paused.`, {
 			reply_markup: new InlineKeyboard()
 				.text(`▶ Resume ${username}`, `acc:resume:${username}`)
@@ -273,22 +270,22 @@ export function initTelegramBot(
 
 	telegramBot.callbackQuery(/^acc:resume:(.+)$/, async (ctx) => {
 		if (!ctx.chat || !isAllowed(ctx.chat.id)) return;
-		await ctx.answerCallbackQuery();
 
 		const username = ctx.match?.[1];
 		if (!username) return;
 
 		const bot = findBot(username);
 		if (!bot) {
-			await ctx.reply(`Account "${username}" not found.`);
+			await ctx.answerCallbackQuery({ text: `Account "${username}" not found` });
 			return;
 		}
 		if (!bot.info.paused) {
-			await ctx.reply(`${username} is not paused.`);
+			await ctx.answerCallbackQuery({ text: `${username} is not paused` });
 			return;
 		}
 
 		bot.resume();
+		await ctx.answerCallbackQuery({ text: `▶ ${username} resumed` });
 		await ctx.editMessageText(`▶ ${username} resumed.`, {
 			reply_markup: new InlineKeyboard()
 				.text(`⏸ Pause ${username}`, `acc:pause:${username}`)
