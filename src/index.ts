@@ -3,6 +3,15 @@ import { ConfigManager, loadConfig } from "./config";
 import { startGuiServer } from "./gui/server";
 import { DefaultTokenStorage } from "./token-storage";
 
+// Global error handlers — prevent crashes from unhandled exceptions
+process.on("uncaughtException", (err) => {
+	console.error("[FATAL] Uncaught exception:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+	console.error("[FATAL] Unhandled rejection:", reason);
+});
+
 console.info("Starting Steam Hour Booster");
 
 const configPath = Bun.env["CONFIG_PATH"] ?? "./config.json";

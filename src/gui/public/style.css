@@ -515,6 +515,12 @@ main {
 	color: #fff;
 	box-shadow: 0 2px 8px rgba(255, 23, 68, 0.3);
 }
+.status-badge.Expired {
+	background: linear-gradient(135deg, #ff6b35, #e64a19);
+	color: #fff;
+	box-shadow: 0 2px 8px rgba(255, 107, 53, 0.4);
+	animation: statusGlow 2s ease-in-out infinite;
+}
 .status-badge.Paused {
 	background: linear-gradient(135deg, var(--yellow), #e6a800);
 	color: #000;

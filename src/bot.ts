@@ -10,7 +10,12 @@ type LoginDetails = Parameters<Steam["logOn"]>[0];
 // To mitigate the following issue: https://github.com/DrWarpMan/steam-hour-booster/issues/9
 const LOGIN_TIMEOUT = 10 * 60 * 1000;
 
-export type BotStatus = "Idle" | "Playing" | "Blocked" | "Logged Out";
+export type BotStatus =
+	| "Idle"
+	| "Playing"
+	| "Blocked"
+	| "Logged Out"
+	| "Expired";
 
 export interface BotInfo {
 	username: string;
@@ -162,7 +167,9 @@ export class Bot {
 
 		this.#steam.on("disconnected", (eresult, msg) => {
 			console.log("[DEBUG] event: disconnected", eresult, msg);
-			this.#status = "Logged Out";
+			if (this.#status !== "Expired") {
+				this.#status = "Logged Out";
+			}
 			this.#startedAt = 0;
 		});
 
@@ -172,6 +179,12 @@ export class Bot {
 			}
 
 			this.#log(`Error: ${err.message}`);
+
+			// eresult 27 = Expired — handle immediately, don't retry
+			if ((err as Error & { eresult?: number }).eresult === 27) {
+				this.#handleTokenExpired();
+				return;
+			}
 
 			this.#handleError(err);
 		});
@@ -402,8 +415,14 @@ export class Bot {
 		}
 	}
 
-	async #handleError(err: Error & { eresult: Steam.EResult }): Promise<void> {
+	async #handleError(err: Error & { eresult?: Steam.EResult }): Promise<void> {
 		console.error(err);
+
+		// eresult 27 = Expired — refresh token is dead, must re-authenticate
+		if (err.eresult === 27) {
+			await this.#handleTokenExpired();
+			return;
+		}
 
 		try {
 			await this.logout();
@@ -421,6 +440,19 @@ export class Bot {
 			this.#log("Could not re-login after multiple attempts, logging off.");
 			this.#steam.logOff();
 		}
+	}
+
+	async #handleTokenExpired(): Promise<void> {
+		this.#log("Session expired (eresult: 27). Token is no longer valid.");
+		this.#status = "Expired";
+		this.#startedAt = 0;
+		this.#steam.logOff();
+
+		// Delete expired token so next login uses credentials or prompts QR
+		try {
+			await this.#tokenStorage?.deleteToken(this.#username);
+			this.#log("Expired token deleted. Use GUI to re-login.");
+		} catch {}
 	}
 }
 
