@@ -3,6 +3,14 @@
 
 FROM oven/bun:1.2.19 AS base
 
+RUN apt-get update && apt-get install -y --no-install-recommends locales && \
+    sed -i '/ru_RU.UTF-8/s/^# //' /etc/locale.gen && locale-gen && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV LANG=ru_RU.UTF-8
+ENV LC_TIME=ru_RU.UTF-8
+ENV TZ=Europe/Moscow
+
 WORKDIR /app
 
 FROM base AS install
