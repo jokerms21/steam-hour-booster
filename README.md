@@ -194,6 +194,7 @@ cp .env.template .env
 | `GUI_KEY_FILE` | Path to SSL private key (optional) | — |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token (optional) | — |
 | `TELEGRAM_CHAT_ID` | Telegram chat ID for admin (optional) | — |
+| `KICKED_SAFETY_DELAY` | Safety delay after kick before boosting (seconds, default 180, 0 to disable) | `180` |
 
 > **Security:** If you expose the GUI to the internet, always set `GUI_USERNAME` and `GUI_PASSWORD` to protect your accounts.
 

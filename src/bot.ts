@@ -531,7 +531,8 @@ export class Bot {
 					}
 
 					// Safety delay: wait before boosting to make sure user is truly done
-					const SAFETY_DELAY_MS = 3 * 60 * 1000;
+					const safetyDelaySec = Number(Bun.env["KICKED_SAFETY_DELAY"] ?? "180");
+					const SAFETY_DELAY_MS = safetyDelaySec * 1000;
 					this.#log(`Account free. Waiting ${SAFETY_DELAY_MS / 1000}s safety delay before boosting...`);
 					this.#status = "Idle";
 
