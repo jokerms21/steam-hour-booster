@@ -211,6 +211,12 @@ export class Bot {
 				return;
 			}
 
+			// eresult 3 = NoConnection — connection lost, retry
+			if ((err as Error & { eresult?: number }).eresult === 3) {
+				this.#handleServiceUnavailable();
+				return;
+			}
+
 			notifyError(this.#username, err.message);
 			this.#handleError(err);
 		});
@@ -447,6 +453,12 @@ export class Bot {
 		// eresult 27 = Expired — refresh token is dead, must re-authenticate
 		if (err.eresult === 27) {
 			await this.#handleTokenExpired();
+			return;
+		}
+
+		// eresult 3 = NoConnection, eresult 20 = ServiceUnavailable — retry
+		if (err.eresult === 3 || err.eresult === 20) {
+			this.#handleServiceUnavailable();
 			return;
 		}
 
