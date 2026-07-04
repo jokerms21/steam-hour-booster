@@ -228,12 +228,21 @@ export function initTelegramBot(
 				? `\n🔴 ${errors} errors | 🟡 ${warns} warnings`
 				: "";
 
-		await ctx.editMessageText(`<pre>${header}${stats}\n\n${text}</pre>`, {
-			parse_mode: "HTML",
-			reply_markup: new InlineKeyboard()
-				.text("◀ Back", "menu:logs")
-				.text("🔄 Refresh", `logs:${range}`),
-		});
+		try {
+			await ctx.editMessageText(`<pre>${header}${stats}\n\n${text}</pre>`, {
+				parse_mode: "HTML",
+				reply_markup: new InlineKeyboard()
+					.text("◀ Back", "menu:logs")
+					.text("🔄 Refresh", `logs:${range}`),
+			});
+		} catch (err) {
+			// Ignore "message is not modified" on refresh
+			if (err instanceof Error && err.message.includes("message is not modified")) {
+				await ctx.answerCallbackQuery({ text: "No changes" });
+				return;
+			}
+			throw err;
+		}
 	});
 
 	telegramBot.callbackQuery(/^acc:pause:(.+)$/, async (ctx) => {
@@ -289,6 +298,9 @@ export function initTelegramBot(
 	});
 
 	telegramBot.catch((err) => {
+		if (err instanceof Error && err.message.includes("message is not modified")) {
+			return; // ignore — content hasn't changed on refresh
+		}
 		console.error("[Telegram] Bot error:", err);
 	});
 
