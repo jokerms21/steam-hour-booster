@@ -172,7 +172,7 @@ export class Bot {
 	#setup(): void {
 		this.#steam.on("loggedOn", async () => {
 			this.#log("Logged in.");
-			if (this.#startedAt === 0) {
+			if (this.#startedAt === 0 && !this.#safetyDelayActive) {
 				notifyReconnected(this.#username);
 			}
 			this.#startedAt = Date.now();
