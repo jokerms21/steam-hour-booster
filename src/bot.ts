@@ -183,8 +183,8 @@ export class Bot {
 				return;
 			}
 
-			this.#status = "Playing";
 			await this.#resolveGameNames();
+			this.#play();
 		});
 
 		this.#steam.on("disconnected", (eresult, msg) => {
@@ -364,9 +364,18 @@ export class Bot {
 			onEvent(event);
 
 			if (event.type === "authenticated" && event.refreshToken) {
-				await this.#tokenStorage?.setToken(this.#username, event.refreshToken);
-				this.#log("QR login successful via GUI, token saved.");
-				await this.login();
+				try {
+					await this.#tokenStorage?.setToken(
+						this.#username,
+						event.refreshToken,
+					);
+					this.#log("QR login successful via GUI, token saved.");
+					await this.login();
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err);
+					this.#log(`QR login follow-up failed: ${msg}`);
+					onEvent({ type: "error", error: msg });
+				}
 			}
 		});
 

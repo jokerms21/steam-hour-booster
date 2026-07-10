@@ -837,6 +837,17 @@ if (form) {
 	form.addEventListener("submit", async (e) => {
 		e.preventDefault();
 
+		if (gameIds.length === 0) {
+			addLog({
+				level: "error",
+				time: fmtTime(),
+				user: formUsername.value.trim() || "—",
+				msg: "Add at least one game (step 2)",
+			});
+			setWizardStep(2);
+			return;
+		}
+
 		const schedEnabled = document.getElementById(
 			"form-schedule-enabled",
 		).checked;

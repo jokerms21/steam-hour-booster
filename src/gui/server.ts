@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import type { Bot } from "../bot";
 import type { ConfigEntry, ConfigManager } from "../config";
+import { configSchema } from "../config";
 import { logBuffer } from "../log-buffer";
 
 const PUBLIC_DIR = resolve(import.meta.dir, "./public");
@@ -326,36 +327,53 @@ export function startGuiServer(
 				if (url.pathname === "/api/accounts" && req.method === "POST") {
 					try {
 						const body = (await req.json()) as Record<string, unknown>;
-						const entry = {
-							username: body["username"] as string,
-							password: body["password"] as string | undefined,
-							games: body["games"] as number[],
-							online: (body["online"] as boolean) ?? false,
-							loginMethod:
-								(body["loginMethod"] as "credentials" | "qrcode") ??
-								"credentials",
-							schedule: body["schedule"] as ConfigEntry["schedule"],
-						};
-						
-						// Check if account already exists
-						const usernameLower = entry.username.toLowerCase();
-						if (bots.find(b => b.info.username === usernameLower)) {
-							return Response.json({ 
-								ok: false, 
-								error: "Account already exists" 
-							}, { status: 400 });
+						const parsed = configSchema.element.safeParse({
+							username:
+								typeof body["username"] === "string"
+									? body["username"].trim().toLowerCase()
+									: body["username"],
+							password: body["password"],
+							games: body["games"],
+							online: body["online"] ?? false,
+							loginMethod: body["loginMethod"] ?? "credentials",
+							schedule: body["schedule"],
+						});
+
+						if (!parsed.success) {
+							const msg = parsed.error.errors
+								.map((e) => e.message)
+								.join("; ");
+							return Response.json({ ok: false, error: msg }, { status: 400 });
 						}
-						
+
+						const entry = parsed.data;
+
+						if (
+							bots.find((b) => b.info.username === entry.username) ||
+							configManager.getByUsername(entry.username)
+						) {
+							return Response.json(
+								{
+									ok: false,
+									error: "Account already exists",
+								},
+								{ status: 400 },
+							);
+						}
+
 						configManager.add(entry);
-						
+
 						// Create and start the bot
 						const bot = createBot(entry);
 						bot.setSteamGuardRequester((username) =>
 							requestSteamGuardCode(username, broadcast),
 						);
 						bots.push(bot);
-						bot.login();
-						
+						void bot.login().catch((err) => {
+							const msg = err instanceof Error ? err.message : String(err);
+							logBuffer.add("error", entry.username, `Login failed: ${msg}`);
+						});
+
 						broadcast({ type: "status", data: getStatus() });
 						return Response.json({ ok: true });
 					} catch (err) {
@@ -368,7 +386,10 @@ export function startGuiServer(
 				if (url.pathname === "/api/qr-login" && req.method === "POST") {
 					try {
 						const body = (await req.json()) as Record<string, unknown>;
-						const username = body["username"] as string;
+						const username =
+							typeof body["username"] === "string"
+								? body["username"].trim().toLowerCase()
+								: "";
 
 						if (!username) {
 							return Response.json(
@@ -377,9 +398,7 @@ export function startGuiServer(
 							);
 						}
 
-						const bot = bots.find(
-							(b) => b.info.username === username.toLowerCase(),
-						);
+						const bot = bots.find((b) => b.info.username === username);
 
 						if (!bot) {
 							return Response.json(
@@ -411,7 +430,10 @@ export function startGuiServer(
 				if (url.pathname === "/api/qr-stop" && req.method === "POST") {
 					try {
 						const body = (await req.json()) as Record<string, unknown>;
-						const username = body["username"] as string;
+						const username =
+							typeof body["username"] === "string"
+								? body["username"].trim().toLowerCase()
+								: "";
 
 						const session = activeQRSessions.get(username);
 						if (session) {
@@ -587,7 +609,24 @@ export function startGuiServer(
 
 					if (req.method === "DELETE") {
 						try {
+							const usernameLower = username.toLowerCase();
+							const botIdx = bots.findIndex(
+								(b) => b.info.username === usernameLower,
+							);
+
+							if (botIdx !== -1) {
+								const bot = bots[botIdx];
+								const qrSession = activeQRSessions.get(usernameLower);
+								if (qrSession) {
+									qrSession.stop();
+									activeQRSessions.delete(usernameLower);
+								}
+								void bot.logout().catch(() => {});
+								bots.splice(botIdx, 1);
+							}
+
 							configManager.delete(username);
+							broadcast({ type: "status", data: getStatus() });
 							return Response.json({ ok: true });
 						} catch (err) {
 							const msg = err instanceof Error ? err.message : String(err);
