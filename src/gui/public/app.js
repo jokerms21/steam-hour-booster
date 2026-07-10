@@ -517,11 +517,17 @@ function renderAccounts(accounts) {
 			<div class="account-actions">
 				<div class="actions-primary">
 					${
-						a.status === "Playing" || a.paused
-							? a.paused
-								? `<button class="btn primary btn-sm" onclick="resumeBot('${a.username}')">▶ Resume</button>`
-								: `<button class="btn warning btn-sm" onclick="pauseBot('${a.username}')">⏸ Pause</button>`
-							: ""
+						a.steamGuardPending
+							? `<button class="btn primary btn-sm" onclick="openSteamGuardModal('${a.username}')">🔐 Steam Guard</button>`
+							: a.status === "Logged Out" || a.status === "Expired"
+								? a.loginMethod === "qrcode"
+									? `<button class="btn primary btn-sm" onclick="startQRLogin('${a.username}')">QR Login</button>`
+									: `<button class="btn primary btn-sm" onclick="loginBot('${a.username}')">Login</button>`
+								: a.status === "Playing" || a.paused
+									? a.paused
+										? `<button class="btn primary btn-sm" onclick="resumeBot('${a.username}')">▶ Resume</button>`
+										: `<button class="btn warning btn-sm" onclick="pauseBot('${a.username}')">⏸ Pause</button>`
+									: ""
 					}
 				</div>
 				<div class="actions-secondary desktop-card-actions">
@@ -574,6 +580,25 @@ window.resumeBot = async (username) => {
 		body: JSON.stringify({ username }),
 	});
 };
+
+window.loginBot = async (username) => {
+	const res = await fetch("/api/bot/login", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ username }),
+	});
+	const data = await res.json();
+	if (!data.ok) {
+		addLog({
+			level: "error",
+			time: fmtTime(),
+			user: username,
+			msg: data.error || "Login failed",
+		});
+	}
+};
+
+window.openSteamGuardModal = openSteamGuardModal;
 
 function addLog(entry) {
 	logs.push(entry);
@@ -1118,7 +1143,8 @@ async function submitSteamGuard() {
 		closeSteamGuardModal();
 	} else {
 		if (sgError) {
-			sgError.textContent = data.error || "Failed to submit code.";
+			sgError.textContent =
+				data.error || "Failed to submit code. Try clicking Login again.";
 			sgError.classList.remove("hidden");
 		}
 	}

@@ -83,5 +83,8 @@ if (telegramToken) {
 
 // Login bots (non-blocking - Steam Guard prompts won't block the server)
 for (const bot of bots) {
-	bot.login();
+	void bot.login().catch((err) => {
+		const msg = err instanceof Error ? err.message : String(err);
+		console.error(`[${bot.info.username}] Login failed: ${msg}`);
+	});
 }

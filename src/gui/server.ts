@@ -74,26 +74,32 @@ export function requestSteamGuardCode(
 	broadcast: (data: unknown) => void,
 ): Promise<string> {
 	return new Promise((resolve, reject) => {
-		steamGuardPending.set(username, {
+		const key = username.toLowerCase();
+		steamGuardPending.set(key, {
 			resolve: (code) => {
-				steamGuardPending.delete(username);
+				steamGuardPending.delete(key);
 				resolve(code);
 			},
 			reject: (err) => {
-				steamGuardPending.delete(username);
+				steamGuardPending.delete(key);
 				reject(err);
 			},
 		});
-		broadcast({ type: "steamGuard", username });
+		broadcast({ type: "steamGuard", username: key });
 	});
 }
 
 export function submitSteamGuardCode(username: string, code: string): boolean {
-	const pending = steamGuardPending.get(username);
+	const key = username.toLowerCase();
+	const pending = steamGuardPending.get(key);
 	if (!pending) return false;
-	steamGuardPending.delete(username);
+	steamGuardPending.delete(key);
 	pending.resolve(code);
 	return true;
+}
+
+export function isSteamGuardPending(username: string): boolean {
+	return steamGuardPending.has(username.toLowerCase());
 }
 
 export interface GuiServerOptions {
@@ -130,7 +136,11 @@ export function startGuiServer(
 		);
 	}
 
-	const getStatus = () => bots.map((bot) => bot.info);
+	const getStatus = () =>
+		bots.map((bot) => ({
+			...bot.info,
+			steamGuardPending: steamGuardPending.has(bot.info.username),
+		}));
 
 	const tlsOptions =
 		options.certFile && options.keyFile
@@ -452,8 +462,11 @@ export function startGuiServer(
 				if (url.pathname === "/api/steam-guard" && req.method === "POST") {
 					try {
 						const body = (await req.json()) as Record<string, unknown>;
-						const username = body["username"] as string;
-						const code = body["code"] as string;
+						const username =
+							typeof body["username"] === "string"
+								? body["username"].trim().toLowerCase()
+								: "";
+						const code = typeof body["code"] === "string" ? body["code"].trim() : "";
 
 						if (!username || !code) {
 							return Response.json(
@@ -463,7 +476,10 @@ export function startGuiServer(
 						}
 
 						const accepted = submitSteamGuardCode(username, code);
-						return Response.json({ ok: accepted });
+						return Response.json({
+							ok: accepted,
+							error: accepted ? undefined : "No pending Steam Guard request — click Login first",
+						});
 					} catch (err) {
 						const msg = err instanceof Error ? err.message : String(err);
 						return Response.json({ ok: false, error: msg }, { status: 400 });
@@ -477,7 +493,10 @@ export function startGuiServer(
 				) {
 					try {
 						const body = (await req.json()) as Record<string, unknown>;
-						const username = body["username"] as string;
+						const username =
+							typeof body["username"] === "string"
+								? body["username"].trim().toLowerCase()
+								: "";
 
 						const pending = steamGuardPending.get(username);
 						if (pending) {
@@ -485,6 +504,44 @@ export function startGuiServer(
 							pending.reject(new Error("Cancelled"));
 						}
 
+						return Response.json({ ok: true });
+					} catch (err) {
+						const msg = err instanceof Error ? err.message : String(err);
+						return Response.json({ ok: false, error: msg }, { status: 400 });
+					}
+				}
+
+				// API: trigger login (retry after Logged Out / Expired)
+				if (url.pathname === "/api/bot/login" && req.method === "POST") {
+					try {
+						const body = (await req.json()) as Record<string, unknown>;
+						const username =
+							typeof body["username"] === "string"
+								? body["username"].trim().toLowerCase()
+								: "";
+
+						if (!username) {
+							return Response.json(
+								{ ok: false, error: "Username required" },
+								{ status: 400 },
+							);
+						}
+
+						const bot = bots.find((b) => b.info.username === username);
+
+						if (!bot) {
+							return Response.json(
+								{ ok: false, error: "Account not found" },
+								{ status: 404 },
+							);
+						}
+
+						void bot.login().catch((err) => {
+							const msg = err instanceof Error ? err.message : String(err);
+							logBuffer.add("error", username, `Login failed: ${msg}`);
+						});
+
+						broadcast({ type: "status", data: getStatus() });
 						return Response.json({ ok: true });
 					} catch (err) {
 						const msg = err instanceof Error ? err.message : String(err);

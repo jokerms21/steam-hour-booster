@@ -282,8 +282,9 @@ export class Bot {
 			}
 
 			if (!code) {
-				console.error("No Steam Guard code provided, exiting.");
-				process.exit(0);
+				this.#log("No Steam Guard code provided.");
+				callback("");
+				return;
 			}
 
 			callback(code);
